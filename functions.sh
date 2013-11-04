@@ -64,6 +64,8 @@ ch_host()
   
   [[ -z $UDOO_NEW ]] && error "Hostname cannot be empty"
  
+  xhost +
+ 
   if grep -q $UDOO_OLD /etc/hosts 
   then 
     sed -e "s/$UDOO_OLD/$UDOO_NEW/g" -i /etc/hosts 
@@ -78,7 +80,8 @@ ch_host()
   [[ "$(cat /etc/hostname)" == 	"$UDOO_NEW" ]] && \
   [[ "$(cat /etc/hostname)" =~ 	"$UDOO_NEW" ]] || error
 
-  ok "Success! (New hostname: $UDOO_NEW)"
+  ok "Success! (New hostname: $UDOO_NEW)
+  Please reboot!"
 }
 
 mem_split()
