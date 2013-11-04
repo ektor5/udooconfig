@@ -57,15 +57,17 @@ ch_passwd()
 ch_host()
 {
   ## ch_host 
+  UDOO_OLD=`cat /etc/hostname`
+  UDOO_NEW=`$D --entry --text="Enter hostname (current: $UDOO_OLD)" | tr -d " \t\n\r" `
+  [ $? != 0 ] || exit 1
   
-  UDOO_HOST=`$D --entry --text="Enter hostname"`
-
-  [[ -z $UDOO_HOST ]] && error 
-  
-  echo $UDOO_HOST > /etc/hostname
+  [[ -z $UDOO_NEW ]] && error 
+ 
+  echo $UDOO_NEW > /etc/hostname
+  sed -e "s/$UDOO_OLD/$UDOO_NEW/g" -i /etc/hosts 
   
   # CHECK
-  [[ $UDOO_HOST != `cat /etc/hostname` ]] && error
+  [[ "$(cat /etc/hostname)" != 	"$UDOO_NEW" ]] || error
   
   ok 
 }
