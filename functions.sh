@@ -10,8 +10,11 @@
 
 
 TITLE="udoo-config"
+
 DIALOG="dialog"
 XDIALOG="zenity --title=$TITLE"
+PRINTENV="fw_printenv"
+SETENV="fw_setenv"
 
 UDOO_USER="ubuntu"
 
@@ -56,28 +59,44 @@ ch_passwd()
 
 ch_host()
 {
-  ## ch_host 
   UDOO_OLD=`cat /etc/hostname`
   UDOO_NEW=`$D --entry --text="Enter hostname (current: $UDOO_OLD)" | tr -d " \t\n\r" `
-  [ $? != 0 ] || exit 1
   
-  [[ -z $UDOO_NEW ]] && error 
+  [[ -z $UDOO_NEW ]] && error "Hostname cannot be empty"
  
+  xhost +
+  
+  if grep $UDOO_OLD /etc/hosts
+  then 
+    sed -e "s/$UDOO_OLD/$UDOO_NEW/g" -i /etc/hosts 
+  else
+    echo "127.0.0.1 $UDOO_OLD" >> /etc/hosts
+  fi
+    
   echo $UDOO_NEW > /etc/hostname
-  sed -e "s/$UDOO_OLD/$UDOO_NEW/g" -i /etc/hosts 
+  
+  xhost -
   
   # CHECK
-  [[ "$(cat /etc/hostname)" != 	"$UDOO_NEW" ]] || error
+  [[ "$(cat /etc/hostname)" == 	"$UDOO_NEW" ]] && \
+  [[ "$(cat /etc/hostname)" ~= 	"$UDOO_NEW" ]] || error
   
-  ok 
+  ok "Success! (New hostname: $UDOO_NEW)"
 }
 
 mem_split()
 {
 declare -i FBMEM GPUMEM
 
-FBMEM=`fw_printenv | grep \^memory | sed -n -e 's/memory.*fbmem\=\([0-9]*\)M.*/\1/p'`
-GPUMEM=`fw_printenv | grep \^memory | sed -n -e 's/memory.*gpumem\=\([0-9]*\)M.*/\1/p'`
+UDOO_ENV=`$PRINTENV 2>&1`
+
+case $? in
+  1)  	error "$UDOO_ENV" ;;
+  127)	error "$PRINTENV not found" ;;
+esac
+
+FBMEM=`echo $UDOO_ENV | grep \^memory | sed -n -e 's/memory.*fbmem\=\([0-9]*\)M.*/\1/p'`
+GPUMEM=`echo $UDOO_ENV | grep \^memory | sed -n -e 's/memory.*gpumem\=\([0-9]*\)M.*/\1/p'`
 
 (( $FBMEM )) || FBMEM=24
 (( $GPUMEM )) || GPUMEM=128
@@ -104,7 +123,7 @@ GPUMEM=`fw_printenv | grep \^memory | sed -n -e 's/memory.*gpumem\=\([0-9]*\)M.*
 	  `
 (( $? )) && exit 1 	 
 
-fw_setenv memory fbmem=${FBMEM}M gpumem=${GPUMEM}M || error
+$SETENV memory fbmem=${FBMEM}M gpumem=${GPUMEM}M || error
 
-ok
+ok "Success! (FBMEM=${FBMEM}M GPUMEM=${GPUMEM}M)"
 }

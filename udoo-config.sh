@@ -46,7 +46,7 @@ do
 
     4) (mem_split) ;;
 
-    5) ( fw_printenv | zenity --text-info) ;;
+    5) (fw_printenv 2>&1 | zenity --text-info) ;;
 
   esac
 
