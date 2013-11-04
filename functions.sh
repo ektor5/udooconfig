@@ -74,9 +74,10 @@ ch_host()
   echo $UDOO_NEW > /etc/hostname
   
   # CHECK
+
   [[ "$(cat /etc/hostname)" == 	"$UDOO_NEW" ]] && \
   [[ "$(cat /etc/hostname)" =~ 	"$UDOO_NEW" ]] || error
-  
+
   ok "Success! (New hostname: $UDOO_NEW)"
 }
 
