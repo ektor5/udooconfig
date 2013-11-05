@@ -127,3 +127,12 @@ $SETENV memory fbmem=${FBMEM}M gpumem=${GPUMEM}M || error
 
 ok "Success! (FBMEM=${FBMEM}M GPUMEM=${GPUMEM}M)"
 }
+
+print_env()
+{
+$UDOO_ENV=`$PRINTENV 2>&1`
+
+(( $? )) && error $UDOO_ENV
+
+echo $UDOO_ENV | $D --text-info
+}
