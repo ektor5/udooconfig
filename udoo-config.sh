@@ -28,12 +28,13 @@ do
 	  --column="Checkbox" \
 	  --column="Number" \
 	  --column="Option" \
-	  0		1	"Change User Password" \
-	  0		2	"Change Hostname" \
-	  0		3	"Service Management" \
-	  0		4	"Memory Split" \
-	  0		5	"Show u-boot Environment" \
-	  0		6	"Update date from network and sync with RTC" \
+	  0		1		"Change User Password" \
+	  0		2		"Change Hostname" \
+	  0		3		"Service Management" \
+	  0		4		"Memory Split" \
+	  0		5		"Show u-boot Environment" \
+	  0		6		"Update date from network and sync with RTC" \
+		0		9		"Credits" \
 	      `
   EXIT=$?
 	      
@@ -51,10 +52,8 @@ do
     
     6) (ntpdate_rtc) ;;
 
+		9) (credits) ;;	
   esac
 
 done
  
-
-
-

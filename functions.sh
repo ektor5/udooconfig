@@ -46,7 +46,9 @@ ch_passwd()
   USER=$1  
   PASSWD=`$D --title="$TITLE" --entry --text="Enter password" --hide-text`
 
-  [[ -z $PASSWD ]] && error
+	(( $? )) && exit 1
+ 
+  [[ -z $PASSWD ]] && error "Password cannot be empty"
 
   ## DOUBLE CHECK
   PASSWR=`$D --title="$TITLE" --entry --text="Re-enter password" --hide-text` 
@@ -149,4 +151,16 @@ ntpdate_rtc()
 
 	ok "Success! (Time now is `date`)"
 
+}
+
+credits()
+{
+	$D 	--title="Credits" --info --text="
+Credits by:
+
+Ettore Chimenti AKA ektor-5
+
+ek5.chimenti@gmail.com
+
+for UDOO Team"
 }
