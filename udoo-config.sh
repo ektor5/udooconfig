@@ -33,6 +33,7 @@ do
 	  0	3	"Service Management" \
 	  0	4	"Memory Split" \
 	  0	5	"Show u-boot Environment" \
+	  0	6	"Update date from network and sync with RTC" \
 	      `
   EXIT=$?
 	      
@@ -47,6 +48,8 @@ do
     4) (mem_split) ;;
 
     5) (print_env) ;;
+    
+    6) (ntpdate_rtc) ;;
 
   esac
 

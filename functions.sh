@@ -15,6 +15,7 @@ DIALOG="dialog"
 XDIALOG="zenity --title=$TITLE"
 PRINTENV="fw_printenv"
 SETENV="fw_setenv"
+NTPDATE="ntpdate-debian"
 
 UDOO_USER="ubuntu"
 
@@ -130,9 +131,20 @@ ok "Success! (FBMEM=${FBMEM}M GPUMEM=${GPUMEM}M)"
 
 print_env()
 {
-$UDOO_ENV=`$PRINTENV 2>&1`
+UDOO_ENV=`$PRINTENV 2>&1`
 
 (( $? )) && error $UDOO_ENV
 
 echo $UDOO_ENV | $D --text-info
+}
+
+ntpdate_rtc()
+{
+
+$NTPDATE || error 
+
+hwclock -w || error 
+
+ok "Success! (Time now is `date`)"
+
 }
