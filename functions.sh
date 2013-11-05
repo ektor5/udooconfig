@@ -9,10 +9,10 @@
 ## Ettore Chimenti @ 2013/11
 
 
-TITLE="udoo-config"
+TITLE="UDOO Configuration Tool"
 
 DIALOG="dialog"
-XDIALOG="zenity --title=$TITLE"
+XDIALOG="zenity"
 PRINTENV="fw_printenv"
 SETENV="fw_setenv"
 NTPDATE="ntpdate-debian"
@@ -29,14 +29,14 @@ fi
 error() {
   TEXT=$1
   [[ -z $TEXT ]] && TEXT="An error has occoured!"
-  $D --error --text="$TEXT"
+  $D --title="$TITLE" --error --text="$TEXT"
   exit 1
 }
 
 ok() {
   TEXT=$1
   [[ -z $TEXT ]] && TEXT="Success!"
-  $D --info --text="$TEXT"
+  $D --title="$TITLE" --info --text="$TEXT"
 }
 
 ch_passwd()
@@ -44,12 +44,12 @@ ch_passwd()
   ## ch_passwd [user] 
   
   USER=$1  
-  PASSWD=`$D --entry --text="Enter password" --hide-text`
+  PASSWD=`$D --title="$TITLE" --entry --text="Enter password" --hide-text`
 
   [[ -z $PASSWD ]] && error
 
   ## DOUBLE CHECK
-  PASSWR=`$D --entry --text="Re-enter password" --hide-text` 
+  PASSWR=`$D --title="$TITLE" --entry --text="Re-enter password" --hide-text` 
 
   [[ $PASSWD != $PASSWR ]] && error 'Sorry, passwords do not match'
       
@@ -61,7 +61,7 @@ ch_passwd()
 ch_host()
 {
   UDOO_OLD=`cat /etc/hostname`
-  UDOO_NEW=`$D --entry --text="Enter hostname (current: $UDOO_OLD)" | tr -d " \t\n\r" `
+  UDOO_NEW=`$D --title="$TITLE" --entry --text="Enter hostname (current: $UDOO_OLD)" | tr -d " \t\n\r" `
   
   [[ -z $UDOO_NEW ]] && error "Hostname cannot be empty"
  
@@ -87,66 +87,66 @@ ch_host()
 
 mem_split()
 {
-declare -i FBMEM GPUMEM
+	declare -i FBMEM GPUMEM
 
-UDOO_ENV=`$PRINTENV 2>&1`
+	UDOO_ENV=`$PRINTENV 2>&1`
 
-case $? in
-  1)  	error "$UDOO_ENV" ;;
-  127)	error "$PRINTENV not found" ;;
-esac
+	case $? in
+		1)  	error "$UDOO_ENV" ;;
+		127)	error "$PRINTENV not found" ;;
+	esac
 
-FBMEM=`echo $UDOO_ENV | grep \^memory | sed -n -e 's/memory.*fbmem\=\([0-9]*\)M.*/\1/p'`
-GPUMEM=`echo $UDOO_ENV | grep \^memory | sed -n -e 's/memory.*gpumem\=\([0-9]*\)M.*/\1/p'`
+	FBMEM=`echo $UDOO_ENV | grep \^memory | sed -n -e 's/memory.*fbmem\=\([0-9]*\)M.*/\1/p'`
+	GPUMEM=`echo $UDOO_ENV | grep \^memory | sed -n -e 's/memory.*gpumem\=\([0-9]*\)M.*/\1/p'`
 
-(( $FBMEM )) || FBMEM=24
-(( $GPUMEM )) || GPUMEM=128
+	(( $FBMEM )) || FBMEM=24
+	(( $GPUMEM )) || GPUMEM=128
 
- FBMEM=`$D \
-	  --width=400 \
-	  --height=300 \
-	  --scale \
-	  --text="Choose a memory value for framebuffer (MB):" \
-	  --value=$FBMEM \
-	  --min-value=8 \
-	  --max-value=256 \
-	  `
-(( $? )) && exit 1
-	
- GPUMEM=`$D \
-	  --width=400 \
-	  --height=300 \
-	  --scale \
-	  --text="Choose a memory value for video card (MB):" \
-	  --value=$GPUMEM \
-	  --min-value=8 \
-	  --max-value=256 \
-	  `
-(( $? )) && exit 1 	 
+	FBMEM=`$D --title="$TITLE" \
+			--width=400 \
+			--height=300 \
+			--scale \
+			--text="Choose a memory value for framebuffer (MB):" \
+			--value=$FBMEM \
+			--min-value=8 \
+			--max-value=256 \
+			`
+	(( $? )) && exit 1
 
-$SETENV memory fbmem=${FBMEM}M gpumem=${GPUMEM}M || error
+	GPUMEM=`$D --title="$TITLE" \
+			--width=400 \
+			--height=300 \
+			--scale \
+			--text="Choose a memory value for video card (MB):" \
+			--value=$GPUMEM \
+			--min-value=8 \
+			--max-value=256 \
+			`
+	(( $? )) && exit 1 	 
 
-ok "Success! (FBMEM=${FBMEM}M GPUMEM=${GPUMEM}M)"
+	$SETENV memory fbmem=${FBMEM}M gpumem=${GPUMEM}M || error
+
+	ok "Success! (FBMEM=${FBMEM}M GPUMEM=${GPUMEM}M)"
 }
 
 print_env()
 {
-UDOO_ENV=`$PRINTENV 2>&1`
+	UDOO_ENV=`$PRINTENV 2>&1`
 
-(( $? )) && error "$UDOO_ENV"
+	(( $? )) && error "$UDOO_ENV"
 
-echo $UDOO_ENV | $D --text-info
+	echo $UDOO_ENV | $D --title="$TITLE" --text-info
 }
 
 ntpdate_rtc()
 {
 
-NTP=`$NTPDATE 2>&1`
-(( $? )) && echo $NTP && error "$( echo $NTP | sed -e 's/.*\]\: //')"
+	NTP=`$NTPDATE 2>&1`
+	(( $? )) && echo $NTP && error "$( echo $NTP | sed -e 's/.*\]\: //')"
 
-HWC=`hwclock -w`
-(( $? )) && error $HWC
+	HWC=`hwclock -w`
+	(( $? )) && error $HWC
 
-ok "Success! (Time now is `date`)"
+	ok "Success! (Time now is `date`)"
 
 }
