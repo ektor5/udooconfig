@@ -133,7 +133,7 @@ print_env()
 {
 UDOO_ENV=`$PRINTENV 2>&1`
 
-(( $? )) && error $UDOO_ENV
+(( $? )) && error "$UDOO_ENV"
 
 echo $UDOO_ENV | $D --text-info
 }
@@ -141,9 +141,11 @@ echo $UDOO_ENV | $D --text-info
 ntpdate_rtc()
 {
 
-$NTPDATE || error 
+NTP=`$NTPDATE 2>&1`
+(( $? )) && echo $NTP && error "$( echo $NTP | sed -e 's/.*\]\: //')"
 
-hwclock -w || error 
+HWC=`hwclock -w`
+(( $? )) && error $HWC
 
 ok "Success! (Time now is `date`)"
 
