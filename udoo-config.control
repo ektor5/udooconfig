@@ -1,0 +1,27 @@
+# Source: <source package name; defaults to package name>
+Section: misc
+Priority: optional
+# Homepage: http://www.udoo.org
+Standards-Version: 3.9.2
+
+Package: udoo-config
+Version: 1.0
+Maintainer: Ettore Chimenti <ek5.chimenti@gmail.com>
+# Pre-Depends: <comma-separated list of packages>
+Depends: zenity, bum
+# Recommends: <comma-separated list of packages>
+# Suggests: <comma-separated list of packages>
+# Provides: <comma-separated list of packages>
+# Replaces: <comma-separated list of packages>
+Architecture: all
+# Copyright: <copyright file; defaults to GPL2>
+# Changelog: <changelog file; defaults to a generic changelog>
+# Readme: <README.Debian file; defaults to a generic one>
+# Extra-Files: <comma-separated list of additional files for the doc directory>
+Files: udoo-config.conf /etc/
+	udoo-config.sh 				/usr/bin/
+Description: UDOO Configuration Tool (zenity based)
+ This package provides a configuration script that helps to manage 
+ few settings for the UDOO Board (hostname, user password, time, 
+ uboot environment variables and so on)
+ 
