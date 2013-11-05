@@ -11,20 +11,13 @@
 
 TITLE="UDOO Configuration Tool"
 
-DIALOG="dialog"
-XDIALOG="zenity"
+D="zenity"
 PRINTENV="fw_printenv"
 SETENV="fw_setenv"
-NTPDATE="ntpdate-debian"
-
+NTPDATE="ntpdate-debiandfs"
 UDOO_USER="ubuntu"
 
-if ( [[ $1 == "-n"  ]] || [[ -z $DISPLAY ]] )
-then
-  D=$DIALOG
- else
-  D=$XDIALOG
-fi
+[[ -f /etc/udoo-config.conf ]] && . /etc/udoo-config.conf
 
 error() {
   TEXT=$1
@@ -142,15 +135,17 @@ print_env()
 
 ntpdate_rtc()
 {
-
 	NTP=`$NTPDATE 2>&1`
-	(( $? )) && echo $NTP && error "$( echo $NTP | sed -e 's/.*\]\: //')"
+	case $? in
+		 0) ;; 
+   127) error "$NTPDATE not found!" ;;
+		 *) error "$( echo $NTP | sed -e 's/.*\]\: //')" ;;
+	esac
 
-	HWC=`hwclock -w`
+	HWC=`hwclock -w 2>&1`
 	(( $? )) && error $HWC
 
 	ok "Success! (Time now is `date`)"
-
 }
 
 credits()
