@@ -125,6 +125,8 @@ mem_split()
 
   $SETENV memory fbmem=${FBMEM}M gpumem=${GPUMEM}M || error
 
+  sync
+
   ok "Success! (FBMEM=${FBMEM}M GPUMEM=${GPUMEM}M)"
 }
 
