@@ -39,7 +39,7 @@ ch_passwd()
   USER=$1  
   PASSWD=`$D --title="$TITLE" --entry --text="Enter password" --hide-text`
 
-	(( $? )) && exit 1
+  (( $? )) && exit 1
  
   [[ -z $PASSWD ]] && error "Password cannot be empty"
 
@@ -57,6 +57,8 @@ ch_host()
 {
   UDOO_OLD=`cat /etc/hostname`
   UDOO_NEW=`$D --title="$TITLE" --entry --text="Enter hostname (current: $UDOO_OLD)" | tr -d " \t\n\r" `
+  
+  (( $? )) && exit 1
   
   [[ -z $UDOO_NEW ]] && error "Hostname cannot be empty"
  
@@ -130,7 +132,7 @@ print_env()
 
 	(( $? )) && error "$UDOO_ENV"
 
-	echo $UDOO_ENV | $D --title="$TITLE" --text-info
+	$PRINTENV 2>&1 | $D --title="$TITLE" --text-info --font="monospace,9"
 }
 
 ntpdate_rtc()
