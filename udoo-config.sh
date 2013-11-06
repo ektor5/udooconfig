@@ -95,8 +95,8 @@ mem_split()
 	  127)	error "$PRINTENV not found" ;;
   esac
 
-  FBMEM=`echo $UDOO_ENV | grep \^memory | sed -n -e 's/memory.*fbmem\=\([0-9]*\)M.*/\1/p'`
-  GPUMEM=`echo $UDOO_ENV | grep \^memory | sed -n -e 's/memory.*gpumem\=\([0-9]*\)M.*/\1/p'`
+  FBMEM=`echo $UDOO_ENV | sed -n -e 's/.*memory.*fbmem\=\([0-9]*\)M.*/\1/p'`
+  GPUMEM=`echo $UDOO_ENV | sed -n -e 's/.*memory.*gpumem\=\([0-9]*\)M.*/\1/p'`
 
   (( $FBMEM )) || FBMEM=24
   (( $GPUMEM )) || GPUMEM=128
@@ -141,22 +141,22 @@ print_env()
 
 ntpdate_rtc()
 {
-	NTP=`$NTPDATE 2>&1`
-	case $? in
-		 0) ;; 
-   127) error "$NTPDATE not found!" ;;
-		 *) error "$( echo $NTP | sed -e 's/.*\]\: //')" ;;
-	esac
+  NTP=`$NTPDATE 2>&1`
+  case $? in
+  0) 	;; 
+  127) 	error "$NTPDATE not found!" ;;
+  *) 	error "$( echo $NTP | sed -e 's/.*\]\: //')" ;;
+  esac
 
-	HWC=`hwclock -w 2>&1`
-	(( $? )) && error $HWC
+  HWC=`hwclock -w 2>&1`
+  (( $? )) && error $HWC
 
-	ok "Success! (Time now is `date`)"
+  ok "Success! (Time now is `date`)"
 }
 
 credits()
 {
-	$D 	--title="Credits" --info --text="
+  $D 	--title="Credits" --info --text="
 Credits by:
 
 Ettore Chimenti AKA ektor-5
@@ -168,7 +168,7 @@ for UDOO Team"
 
 if [ $(id -u) -ne 0 ] 
 then
- error "You're not root! Try execute: sudo udoo-config.sh" 
+  error "You're not root! Try execute: sudo udoo-config.sh" 
 fi
 
 until (( $EXIT ))
