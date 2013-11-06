@@ -2,7 +2,7 @@
 Encoding=UTF-8
 Name=UDOO Configuration Tool
 Comment=UDOO Configuration Tool (zenity based)
-Exec=udoo-config.sh 
+Exec=gksu udoo-config.sh 
 Icon=udoo-config.png
 StartupNotify=true
 Terminal=false
