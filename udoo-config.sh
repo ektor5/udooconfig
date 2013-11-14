@@ -37,7 +37,7 @@ ch_passwd()
   ## ch_passwd [user] 
   
   USER=$1  
-  PASSWD=`$D --title="$TITLE" --entry --text="Enter password" --hide-text`
+  PASSWD=`$D --title="$TITLE" --entry --text="Enter new password" --hide-text`
 
   (( $? )) && exit 1
  
@@ -187,7 +187,7 @@ do
 	  0		1		"Change User Password" \
 	  0		2		"Change Hostname" \
 	  0		3		"Service Management" \
-	  0		4		"Memory Split" \
+	  0		4		"Change RAM memory layout" \
 	  0		5		"Show u-boot Environment" \
 	  0		6		"Update date from network and sync with RTC" \
 	  0		9		"Credits" \
