@@ -16,6 +16,8 @@ PRINTENV="fw_printenv"
 SETENV="fw_setenv"
 NTPDATE="ntpdate-debian"
 UDOO_USER="ubuntu"
+MMC="/dev/mmcblk0"
+PART="/dev/mmcblk0p1"
 
 [[ -f /etc/udoo-config.conf ]] && . /etc/udoo-config.conf
 
@@ -150,13 +152,93 @@ ntpdate_rtc()
 
   HWC=`hwclock -w 2>&1`
   (( $? )) && error $HWC
-
+  
   ok "Success! (Time now is `date`)"
+}
+
+expand_fs()
+{
+  ( [[ -b $MMC ]] && [[ -b $PART ]] ) || error "I can't open $MMC / $PART . Check and edit /etc/udoo-config.conf"
+
+  PARTSIZE=`parted $MMC -ms p | grep \^1 | cut -f 3 -d: `
+
+  $D --question \
+      --text="The root filesystem ($PARTSIZE) is going to be resized to SD card maximum available capacity.
+This has the potential to cause loss of data. 
+You are advised to backup your data before proceeding." || exit 1
+
+  FIRSTSECT=`parted $MMC -ms unit s p | grep \^1 | cut -f 2 -d: | tr s \ `
+  
+  LASTSECT_PART=`parted $MMC -ms unit s p | grep \^1 | cut -f 3 -d: | tr s \ `
+  LASTSECT_MMC=`parted $MMC -ms unit s p | grep $MMC | cut -f 2 -d: | tr s \ `
+  
+  [[ -f /etc/init.d/resize2fs_once ]] && error "You need to reboot. Now. I keep an eye on you."
+  
+  if (( $LASTSECT_PART == $LASTSECT_MMC - 1 )) 
+  then
+    $D --warning --text="The root filesystem ($PART - $PARTSIZE) is already resized to SD card maximum available capacity on the partition table. Trying to do a real resize."
+    EXPAND=`resize2fs $PART`
+    (( $? )) && error "$EXPAND"
+    ok 
+    exit 0
+  fi  
+
+  EXPAND=`fdisk $MMC <<FDISK
+d
+1
+n
+p
+1
+$FIRSTSECT
+
+w
+FDISK`
+
+  EX=$?
+
+  (( $EX )) && (( $EX != 1 )) && error "$EXPAND"
+
+  # now set up an init.d script from https://github.com/asb/raspi-config
+  cat <<EOF > /etc/init.d/resize2fs_once 
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          resize2fs_once
+# Required-Start:
+# Required-Stop:
+# Default-Start: 2 3 4 5 S
+# Default-Stop:
+# Short-Description: Resize the root filesystem to fill partition
+# Description:
+### END INIT INFO
+
+. /lib/lsb/init-functions
+
+case "\$1" in
+  start)
+    log_daemon_msg "Starting resize2fs_once" &&
+    resize2fs $PART &&
+    rm /etc/init.d/resize2fs_once &&
+    update-rc.d resize2fs_once remove &&
+    log_end_msg \$?
+    ;;
+  *)
+    echo "Usage: \$0 start" >&2
+    exit 3
+    ;;
+esac
+EOF
+
+  chmod +x /etc/init.d/resize2fs_once 
+  update-rc.d resize2fs_once defaults 
+  
+  PARTSIZE=`parted $MMC -ms p | grep \^1 | cut -f 3 -d: `
+
+  ok "Root partition has been resized in the partition table ($PARTSIZE).\nThe filesystem will be enlarged upon the next reboot."
 }
 
 credits()
 {
-  $D 	--title="Credits" --info --text="
+  $D 	--title="Credits" --info --icon-name=udoo-config --text="
 Credits by:
 
 Ettore Chimenti AKA ektor-5
@@ -190,7 +272,8 @@ do
 	  0		4		"Change RAM memory layout" \
 	  0		5		"Show u-boot Environment" \
 	  0		6		"Update date from network and sync with RTC" \
-	  0		9		"Credits" \
+	  0		7		"Expand root partition to disk maximum capacity" \
+    0		9		"Credits" \
 	      `
   EXIT=$?
 	      
@@ -207,6 +290,8 @@ do
     5) (print_env) ;;
     
     6) (ntpdate_rtc) ;;
+
+    7) (expand_fs) ;;
 
     9) (credits) ;;	
   esac

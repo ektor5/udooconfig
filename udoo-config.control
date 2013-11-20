@@ -8,7 +8,7 @@ Package: udoo-config
 Version: 1.0
 Maintainer: Ettore Chimenti <ek5.chimenti@gmail.com>
 # Pre-Depends: <comma-separated list of packages>
-Depends: zenity, bum, gksu
+Depends: zenity, bum, gksu, parted, u-boot-env
 # Recommends: <comma-separated list of packages>
 # Suggests: <comma-separated list of packages>
 # Provides: <comma-separated list of packages>
