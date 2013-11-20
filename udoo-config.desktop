@@ -7,4 +7,4 @@ Icon=udoo-config.png
 StartupNotify=true
 Terminal=false
 Type=Application
-Categories=GNOME;GTK;Application;Settings;AdvancedSettings;
+Categories=GNOME;GTK;Application;Settings;System;AdvancedSettings;
