@@ -97,8 +97,8 @@ mem_split()
 	  127)	error "$PRINTENV not found" ;;
   esac
 
-  FBMEM=`echo $UDOO_ENV | sed -n -e 's/.*memory.*fbmem\=\([0-9]*\)M.*/\1/p'`
-  GPUMEM=`echo $UDOO_ENV | sed -n -e 's/.*memory.*gpumem\=\([0-9]*\)M.*/\1/p'`
+  FBMEM=`echo $UDOO_ENV  | sed -n -e 's/.*fbmem\=\([0-9]*\)M.*/\1/p'`
+  GPUMEM=`echo $UDOO_ENV | sed -n -e 's/.*gpu_reserved\=\([0-9]*\)M.*/\1/p'`
 
   (( $FBMEM )) || FBMEM=24
   (( $GPUMEM )) || GPUMEM=128
@@ -106,30 +106,46 @@ mem_split()
   FBMEM=`$D --title="$TITLE" \
 		  --width=400 \
 		  --height=300 \
-		  --scale \
-		  --text="Choose a memory value for framebuffer (MB):" \
-		  --value=$FBMEM \
-		  --min-value=8 \
-		  --max-value=256 \
+		  --list \
+		  --radiolist \
+		  --hide-header \
+		  --hide-column=2 \
+		  --column="Checkbox" \
+		  --column="Number" \
+		  --column="Option" \
+		  --text="Choose a memory value for framebuffer memory (current: ${FBMEM}M):" \
+		  0 	6 	"6M" \
+		  0 	10 	"10M" \
+		  0 	24 	"24M" \
 		  `
   (( $? )) && exit 1
 
   GPUMEM=`$D --title="$TITLE" \
 		  --width=400 \
 		  --height=300 \
-		  --scale \
-		  --text="Choose a memory value for video card (MB):" \
-		  --value=$GPUMEM \
-		  --min-value=8 \
-		  --max-value=256 \
+		  --list \
+		  --radiolist \
+		  --hide-header \
+		  --hide-column=2 \
+		  --column="Checkbox" \
+		  --column="Number" \
+		  --column="Option" \
+		  --text="Choose a memory value for video card reserved memory (current: ${GPUMEM}M):" \
+		  0 	1 	"1M" \
+		  0 	8 	"8M" \
+		  0 	16 	"16M" \
+		  0 	32 	"32M" \
+		  0 	64 	"64M" \
+		  0 	128 	"128M" \
+		  0 	256 	"256M" \
 		  `
   (( $? )) && exit 1 	 
 
-  $SETENV memory fbmem=${FBMEM}M gpumem=${GPUMEM}M || error
+  $SETENV memory "fbmem=${FBMEM}M gpu_reserved=${GPUMEM}M" || error
 
   sync
 
-  ok "Success! (FBMEM=${FBMEM}M GPUMEM=${GPUMEM}M)"
+  ok "Success! (FBMEM=${FBMEM}M GPU_RESERVED=${GPUMEM}M)"
 }
 
 print_env()
@@ -273,7 +289,7 @@ do
 	  0		5		"Show u-boot Environment" \
 	  0		6		"Update date from network and sync with RTC" \
 	  0		7		"Expand root partition to disk maximum capacity" \
-    0		9		"Credits" \
+	  0		9		"Credits" \
 	      `
   EXIT=$?
 	      
