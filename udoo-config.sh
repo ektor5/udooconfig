@@ -138,7 +138,7 @@ print_env()
 
   (( $? )) && error "$UDOO_ENV"
 
-  $PRINTENV 2>&1 | $D --title="$TITLE" --text-info --font="monospace,9"
+  $PRINTENV 2>&1 | $D --width=400 --height=300 --title="$TITLE" --text-info --font="monospace,9"
 }
 
 ntpdate_rtc()
@@ -238,7 +238,7 @@ EOF
 
 credits()
 {
-  $D 	--title="Credits" --info --icon-name=udoo-config --text="
+  $D 	--title="Credits" --info --text="
 Credits by:
 
 Ettore Chimenti AKA ektor-5
