@@ -118,7 +118,8 @@ mem_split()
 		  0 	10 	"10M" \
 		  0 	24 	"24M" \
 		  `
-  (( $? )) && exit 1
+  ( (( $? )) || (( ! $FBMEM )) ) && exit 1
+  
 
   GPUMEM=`$D --title="$TITLE" \
 		  --width=400 \
@@ -139,9 +140,9 @@ mem_split()
 		  0 	128 	"128M" \
 		  0 	256 	"256M" \
 		  `
-  (( $? )) && exit 1 	 
+  ( (( $? )) || (( ! $GPUMEM )) ) && exit 1 	 
 
-  $SETENV memory "fbmem=${FBMEM}M gpu_reserved=${GPUMEM}M" || error
+  echo $SETENV memory "fbmem=${FBMEM}M gpu_reserved=${GPUMEM}M" || error
 
   sync
 
