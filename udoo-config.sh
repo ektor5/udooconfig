@@ -16,7 +16,7 @@ PRINTENV="fw_printenv"
 SETENV="fw_setenv"
 NTPDATE="ntpdate-debian"
 UDOO_USER="ubuntu"
-MMC="/dev/mmcblk0"
+mMC="/dev/mmcblk0"
 PART="/dev/mmcblk0p1"
 
 [[ -f /etc/udoo-config.conf ]] && . /etc/udoo-config.conf
@@ -142,7 +142,7 @@ mem_split()
 		  `
   ( (( $? )) || (( ! $GPUMEM )) ) && exit 1 	 
 
-  echo $SETENV memory "fbmem=${FBMEM}M gpu_reserved=${GPUMEM}M" || error
+  $SETENV memory "fbmem=${FBMEM}M gpu_reserved=${GPUMEM}M" || error
 
   sync
 
@@ -253,6 +253,219 @@ EOF
   ok "Root partition has been resized in the partition table ($PARTSIZE).\nThe filesystem will be enlarged upon the next reboot."
 }
 
+boot_default()
+{
+BOOT=`$PRINTENV src 2>&1`
+
+(( $? )) && error "$BOOT"
+
+BOOTSRC=`$D  --title="Default Boot Drive" \
+	  --width=400 \
+	  --height=300 \
+	  --list \
+	  --text="Choose a default boot drive. \
+	  U-Boot will try first to boot up the system from there. (current: $BOOT )" \
+	  --radiolist \
+	  --hide-header \
+	  --hide-column=2 \
+	  --column="Checkbox" \
+	  --column="Number" \
+	  --column="Option" \
+	  0		sata		"SATA Drive" \
+	  0		mmc		"SD Card" \
+	  0		net		"Network" \
+	`
+	
+if [[ -n $BOOTSRC ]] 
+  then 
+  BOOT=`$SETENV src $BOOTSRC 2>&1`
+  (( $? )) && error "$BOOT"
+fi
+
+ok "The default boot device is successfully changed"
+}
+
+boot_netvars()
+{
+
+IPADDR=`$PRINTENV ipaddr 2>&1`
+
+(( $? )) && error "$IPADDR"
+
+SERVERIP=`$PRINTENV serverip 2>&1`
+
+(( $? )) && error "$SERVERIP"
+
+NFSROOT=`$PRINTENV nfsroot 2>&1`
+
+(( $? )) && error "$NFSROOT"
+
+GET_CMD=`$PRINTENV get_cmd 2>&1`
+
+(( $? )) && error "$GET_CMD"
+
+
+FORM=`$D --forms --title="Set the environment values for netboot" \
+	--add-entry="UDOO IP config (current: $IPADDR) [ip|dhcp]" \
+	--add-entry="NTP Server IP (current: $SERVERIP)" \
+	--add-entry="NTP File System Location (current: $NFSROOT)" \
+	--add-list="uImage Retrival Method (current: $GET_CMD)" \
+	--list-values="dhcp|tftp|ntp"   \
+	`
+
+IPADDR=`echo $FORM | cut -d \| -f 1`
+
+[[ -z $IPADDR ]] && error "IPADDR cannot be empty"
+
+SERVERIP=`echo $FORM | cut -d \| -f 2`
+
+[[ -z $SERVERIP ]] && error "SERVERIP cannot be empty"
+
+NFSROOT=`echo $FORM | cut -d \| -f 3`
+
+[[ -z $NFSROOT ]] && error "NFSROOT cannot be empty"
+
+GET_CMD=`echo $FORM | cut -d \| -f 4`
+
+[[ -z $GET_CMD ]] && error "You have to specify a retrival method"
+
+
+  BOOT=`$SETENV ipaddr $IPADDR 2>&1`
+  (( $? )) && error "$BOOT"
+
+  BOOT=`$SETENV serverip $SERVERIP 2>&1`
+  (( $? )) && error "$BOOT"
+  
+  BOOT=`$SETENV nfsroot $NFSROOT 2>&1`
+  (( $? )) && error "$BOOT"
+  
+  BOOT=`$SETENV get_cmd $GET_CMD 2>&1`
+  (( $? )) && error "$BOOT"
+  
+  ok "The netboot environment variables has been changed successfully"
+}
+
+boot_mmcvars()
+{
+
+MMCPART=`$PRINTENV mmcpart 2>&1`
+
+(( $? )) && error "$MMCPART"
+
+MMCROOT=`$PRINTENV mmcroot 2>&1`
+
+(( $? )) && error "$MMCROOT"
+
+
+FORM=`$D --forms --title="Set the environment values for mmcboot" \
+	--add-entry="Partition Number (current: $MMCPART) [1-4]" \
+	--add-entry="MMC Device Filename (current: $MMCROOT)" \
+	`
+
+MMCPART=`echo $FORM | cut -d \| -f 1`
+
+[[ -z $MMCPART ]] && error "MMCPART cannot be empty"
+
+MMCROOT=`echo $FORM | cut -d \| -f 2`
+
+[[ -z $MMCROOT ]] && error "MMCROOT cannot be empty"
+
+
+  BOOT=`$SETENV mmcpart $MMCPART 2>&1`
+  (( $? )) && error "$BOOT"
+
+  BOOT=`$SETENV mmcroot $MMCROOT 2>&1`
+  (( $? )) && error "$BOOT"
+ 
+  ok "The mmcboot environment variables has been changed successfully"
+  
+}
+
+boot_satavars()
+{
+
+SATAPART=`$PRINTENV satapart 2>&1`
+
+(( $? )) && error "$SATAPART"
+
+SATAROOT=`$PRINTENV sataroot 2>&1`
+
+(( $? )) && error "$SATAROOT"
+
+
+FORM=`$D --forms --title="Set the environment values for sataboot" \
+	--add-entry="Partition Number (current: $SATAPART) [1-4]" \
+	--add-entry="SATA Device Filename (current: $SATAROOT)" \
+	`
+
+SATAPART=`echo $FORM | cut -d \| -f 1`
+
+[[ -z $SATAPART ]] && error "SATAPART cannot be empty"
+
+SATAROOT=`echo $FORM | cut -d \| -f 2`
+
+[[ -z $SATAROOT ]] && error "SATAROOT cannot be empty"
+
+
+  BOOT=`$SETENV satapart $SATAPART 2>&1`
+  (( $? )) && error "$BOOT"
+
+  BOOT=`$SETENV sataroot $SATAROOT 2>&1`
+  (( $? )) && error "$BOOT"
+ 
+  ok "The sataboot environment variables has been changed successfully"
+  
+}
+
+boot_mgr()
+{
+until (( $EXIT ))
+do
+  CHOOSE=`$D  --title="U-Boot Manager" \
+	  --width=400 \
+	  --height=300 \
+	  --list \
+	  --text="Choose an option:" \
+	  --radiolist \
+	  --hide-header \
+	  --hide-column=2 \
+	  --column="Checkbox" \
+	  --column="Number" \
+	  --column="Option" \
+	  0		1		"Set default boot device" \
+	  0		2		"Set boot variables for netboot" \
+	  0		3		"Set boot variables for mmcboot" \
+	  0		4		"Set boot variables for sataboot" \
+	  0		5		"Use boot script" \
+	  0		6		"Set default video output" \
+	  0             7               "Change RAM memory layout" \
+	  0		9		"Show U-Boot Environment" \
+	`  
+  EXIT=$?
+  
+  case $CHOOSE in
+
+    1) (boot_default) ;;
+
+    2) (boot_netvars) ;;
+    
+    3) (boot_mmcvars) ;;
+    
+    4) (boot_satavars) ;;
+
+    5) (boot_script) ;;
+
+    6) (boot_video) ;;
+    
+    7) (mem_split) ;;
+   
+    9) (print_env) ;;
+    
+  esac
+  
+done
+}
+
 credits()
 {
   $D 	--title="Credits" --info --text="
@@ -283,17 +496,16 @@ do
 	  --column="Checkbox" \
 	  --column="Number" \
 	  --column="Option" \
+	  0		3		"Service Management" \
+	  0		4		"U-Boot Manager" \
 	  0		1		"Change User Password" \
 	  0		2		"Change Hostname" \
-	  0		3		"Service Management" \
-	  0		4		"Change RAM memory layout" \
-	  0		5		"Show u-boot Environment" \
 	  0		6		"Update date from network and sync with RTC" \
-	  0		7		"Expand root partition to disk maximum capacity" \
+	  0		7		"Expand root partition to disk max capacity" \
 	  0		9		"Credits" \
 	      `
   EXIT=$?
-	      
+  
   case $CHOOSE in
 
     1) (ch_passwd $UDOO_USER) ;;
@@ -301,16 +513,15 @@ do
     2) (ch_host) ;;
 
     3) (bum) ;;
-
-    4) (mem_split) ;;
-
-    5) (print_env) ;;
+    
+    4) (boot_mgr) ;;    
     
     6) (ntpdate_rtc) ;;
 
     7) (expand_fs) ;;
 
-    9) (credits) ;;	
+    9) (credits) ;;
+
   esac
 
 done
