@@ -306,6 +306,7 @@ GET_CMD=`$PRINTENV get_cmd 2>&1`
 
 
 FORM=`$D --forms --title="Set the environment values for netboot" \
+	--text="Set the environment values for netboot"
 	--add-entry="UDOO IP config (current: $IPADDR) [ip|dhcp]" \
 	--add-entry="NTP Server IP (current: $SERVERIP)" \
 	--add-entry="NTP File System Location (current: $NFSROOT)" \
@@ -358,6 +359,7 @@ MMCROOT=`$PRINTENV mmcroot 2>&1`
 
 
 FORM=`$D --forms --title="Set the environment values for mmcboot" \
+	--text="Set the environment values for mmcboot" \
 	--add-entry="Partition Number (current: $MMCPART) [1-4]" \
 	--add-entry="MMC Device Filename (current: $MMCROOT)" \
 	`
@@ -394,6 +396,7 @@ SATAROOT=`$PRINTENV sataroot 2>&1`
 
 
 FORM=`$D --forms --title="Set the environment values for sataboot" \
+	--text="Set the environment values for sataboot" \
 	--add-entry="Partition Number (current: $SATAPART) [1-4]" \
 	--add-entry="SATA Device Filename (current: $SATAROOT)" \
 	`
@@ -417,6 +420,73 @@ SATAROOT=`echo $FORM | cut -d \| -f 2`
   
 }
 
+boot_script()
+{
+BOOT=`$PRINTENV src 2>&1`
+
+(( $? )) && error "$BOOT"
+
+SCRIPT=`$PRINTENV script 2>&1`
+
+(( $? )) && error "$SCRIPT"
+
+
+FORM=`$D --forms --title="Set the boot script" \
+	--text="Set the boot script variables that will be executed on the root of the default boot device (current: $BOOT)" \
+	--add-entry="Script Filename (current: $SCRIPT)" \
+	`
+
+SCRIPT=`echo $FORM`
+
+[[ -z $SCRIPT ]] && error "SCRIPT cannot be empty"
+
+BOOT=`$SETENV script $SCRIPT 2>&1`
+  (( $? )) && error "$BOOT"
+ 
+SCRIPT=`$PRINTENV script 2>&1`
+
+(( $? )) && error "$SCRIPT"
+ 
+  ok "The boot script variable has been changed successfully (now: $SCRIPT)"
+
+}
+
+boot_video()
+{
+
+VIDEO=`$PRINTENV video 2>&1`
+
+(( $? )) && error "$VIDEO"
+
+VIDEO_DEV=`echo $VIDEO | cut -d "=" -f 3- | cut -d "," -f 1`  # e.g. video=mxcfb0:dev=hdmi,1920x1080M@60,bpp=32
+VIDEO_RES=`echo $VIDEO | cut -d "=" -f 3- | cut -d "," -f 2-`  # e.g. video=mxcfb0:dev=hdmi,1920x1080M@60,bpp=32
+
+FORM=`$D --forms --title="Set the video output environment variables" \
+	--text="Set the video output environment variables" \
+	--add-list="Default video device (current: $VIDEO_DEV)" \
+	--list-values="hdmi|lvds" \
+	--add-list="Default resolution for video device" \
+	--list-values="1024x768@60,bpp=32|1366x768@60,bpp=32|1920x1080M@60,bpp=32" \
+	`
+
+VIDEO_DEV=`echo $FORM | cut -d "|" -f 1` 
+
+[[ -z $VIDEO_DEV ]] && error "VIDEO_DEV cannot be empty"
+
+VIDEO_RES=`echo $FORM | cut -d "|" -f 2` 
+
+[[ -z $VIDEO_RES ]] && error "VIDEO_RES cannot be empty"
+
+VIDEO=`$SETENV video "video=mxcfb0:dev=$VIDEO_DEV,$VIDEO_RES" 2>&1`
+  (( $? )) && error "$VIDEO"
+
+VIDEO=`$PRINTENV video 2>&1`
+
+(( $? )) && error "$VIDEO"
+  
+ok "The boot video variable has been changed successfully (now: $VIDEO)"
+}
+
 boot_mgr()
 {
 until (( $EXIT ))
@@ -438,7 +508,7 @@ do
 	  0		4		"Set boot variables for sataboot" \
 	  0		5		"Use boot script" \
 	  0		6		"Set default video output" \
-	  0             7               "Change RAM memory layout" \
+	  0		7		"Change RAM memory layout" \
 	  0		9		"Show U-Boot Environment" \
 	`  
   EXIT=$?
@@ -462,7 +532,7 @@ do
     9) (print_env) ;;
     
   esac
-  
+
 done
 }
 
