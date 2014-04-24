@@ -326,6 +326,34 @@ VIDEO=`$PRINTENV video 2>&1`
 ok "The boot video variable has been changed successfully (now: $VIDEO)"
 }
 
+ch_locale(){
+#ch_locale($LOCALE)
+local LOCALE=$1
+
+[[ -z $LOCALE ]] && error "LOCALE cannot be empty"
+#Search in /usr/share/X11/xkb/rules/xorg.lst
+[[ -z `grep -qc " $LOCALE " $KBD_RULES` ]] && error "LOCALE not valid (not in $KBD_RULES)"
+
+#Search for /etc/default/keyboard
+[[ -f $KBD_DEFAULT ]] && error "$KBD_DEFAULT not found"
+
+if [[ -z `grep -qc XKBLAYOUT $KBD_DEFAULT` ]]
+  then
+    sed -n -e "s/XKBLAYOUT=.*/XKBLAYOUT=\"$LOCALE\"/" -i $KBD_DEFAULT
+  else
+    echo XKBLAYOUT=\"$LOCALE\" >> $KBD_DEFAULT
+fi
+
+setxkbmap $LOCALE
+
+local E_CODE=$?
+
+(( $? )) && error "Cannot set keyboard mapping directly"
+
+ok
+
+}
+
 credits() {
 
 cat <<CREDITS
