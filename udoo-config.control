@@ -5,7 +5,7 @@ Priority: optional
 Standards-Version: 3.9.2
 
 Package: udoo-config
-Version: 1.0
+Version: 2.0
 Maintainer: Ettore Chimenti <ek5.chimenti@gmail.com>
 # Pre-Depends: <comma-separated list of packages>
 Depends: zenity, bum, gksu, parted, u-boot-env
@@ -22,7 +22,7 @@ Files: udoo-config.conf /etc/udoo-config.conf
  udoo-config.sh /usr/bin/udoo-config.sh
  udoo-config.png /usr/share/pixmaps/udoo-config.png
  udoo-config.desktop /usr/share/applications/udoo-config.desktop 
-Description: UDOO Configuration Tool (zenity based)
+Description: UDOO Configuration Tool
  This package provides a configuration script that helps to manage 
  few settings for the UDOO Board (hostname, user password, time, 
  uboot environment variables and so on)
