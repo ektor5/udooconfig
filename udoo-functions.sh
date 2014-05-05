@@ -359,7 +359,7 @@ local LOCALE=$1
 grep -qc " $LOCALE " $KBD_RULES || error "LOCALE not valid (not in $KBD_RULES)"
 
 #Search for /etc/default/keyboard
-[[ -f $KBD_DEFAULT ]] && error "$KBD_DEFAULT not found"
+[[ -f $KBD_DEFAULT ]] || error "$KBD_DEFAULT not found"
 
 if grep -qc XKBLAYOUT $KBD_DEFAULT
   then
