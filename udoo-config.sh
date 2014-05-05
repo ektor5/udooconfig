@@ -18,6 +18,8 @@ NTPDATE="ntpdate-debian"
 UDOO_USER="ubuntu"
 MMC="/dev/mmcblk0"
 PART="/dev/mmcblk0p1"
+SRCFILE="udoo-defaultenv.src"
+
 
 KBD_DEFAULT="/etc/default/keyboard"
 KBD_RULES="/usr/share/X11/xkb/rules/xorg.lst"

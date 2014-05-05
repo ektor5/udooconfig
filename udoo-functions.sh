@@ -8,6 +8,12 @@
 
 ## Ettore Chimenti @ 2014/04
 
+if [[ $0 =~ "functions" ]] 
+then
+  echo You cannot execute this script directly
+  exit 1
+fi
+
 error() {
   #error($E_TEXT,$E_CODE)
 
@@ -324,6 +330,23 @@ VIDEO=`$PRINTENV video 2>&1`
 (( $? )) && error "$VIDEO"
   
 ok "The boot video variable has been changed successfully (now: $VIDEO)"
+}
+
+boot_reset(){
+#boot_reset()
+
+local RESET
+
+RESET=`$PRINTENV | cut -d = -f 1 | $SETENV -s - 2>&1`
+
+(( $? )) && error $RESET
+
+RESET=`$SETENV -s $SRCFILE 2>&1`
+
+(( $? )) && error $RESET
+
+ok "The u-boot environment has been resetted successfully"
+
 }
 
 ch_locale(){

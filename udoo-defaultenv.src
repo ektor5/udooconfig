@@ -1,0 +1,37 @@
+bootcmd run ${src}boot; run sataboot; run mmcboot; run netboot; 
+
+boot echo No boot source specified
+
+src sata
+
+bootdelay 5
+baudrate 115200
+loadaddr 0x12000000
+uimage /boot/uImage
+console ttymxc1
+splashpos m,m
+video video=mxcfb0:dev=hdmi,1920x1080M@60,bpp=32
+memory fbmem=24M gpu_reserved=128M
+hdmi_patch 
+
+mmcboot if mmc rescan; then echo Booting from mmc ...; run mmcloaduimage; run mmcargs; bootm; else mmc boot failed; fi
+mmcdev 0
+mmcpart 1
+mmcroot /dev/mmcblk0p1 rootwait rw
+mmcargs setenv bootargs console=${console},${baudrate} root=${mmcroot} ${hdmi_patch} ${memory} ${video}
+mmcloaduimage ext2load mmc ${mmcdev}:${mmcpart} ${loadaddr} ${uimage}
+
+sataboot if sata init; then echo Booting from sata ...; run sataloaduimage; run sataargs; bootm; else sata boot failed; fi
+satadev 0
+satapart 1
+sataroot /dev/sda1 rootwait rw
+sataargs setenv bootargs console=${console},${baudrate} root=${sataroot} ${hdmi_patch} ${memory} ${video}
+sataloaduimage ext2load sata ${satadev}:${satapart} ${loadaddr} ${uimage}
+
+ethprime FEC
+ipaddr dhcp
+serverip 192.168.1.1
+nfsroot /src/nfs4/
+get_cmd ntp
+netargs setenv bootargs console=${console},${baudrate} root=/dev/nfs ${hdmi_patch} ${memory} ${video} ip=${ipaddr} nfsroot=${serverip}:${nfsroot},v3,tcp
+netboot echo Booting from net ...; run netargs; ${get_cmd} ${uimage}; bootm
