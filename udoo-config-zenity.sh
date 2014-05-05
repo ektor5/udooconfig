@@ -8,8 +8,6 @@
 
 ## Ettore Chimenti @ 2014/04
 
-udoo-config
-
 TITLE="UDOO Configuration Tool"
 
 D="zenity"

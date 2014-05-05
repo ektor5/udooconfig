@@ -20,6 +20,8 @@ MMC="/dev/mmcblk0"
 PART="/dev/mmcblk0p1"
 SRCFILE="udoo-defaultenv.src"
 
+ZONEFILE="/etc/localtime"
+ZONEINFO="/usr/share/zoneinfo/"
 
 KBD_DEFAULT="/etc/default/keyboard"
 KBD_RULES="/usr/share/X11/xkb/rules/xorg.lst"

@@ -378,6 +378,25 @@ ok
 
 }
 
+ch_timezone(){
+#ch_timezone($ZONE)
+local ZONE
+ZONE=$1
+
+[[ -z $ZONE ]] && error "ZONE cannot be empty"
+
+[[ -f $ZONEFILE ]] || error "$ZONEFILE does not exist"
+
+[[ -f $ZONEINFO$ZONE ]] || error "$ZONEINFO$ZONE does not exist"
+
+ln -sf $ZONEINFO$ZONE $ZONEFILE
+
+(( $? )) && error "Cannot set current timezone"
+
+ok
+
+}
+
 credits() {
 
 cat <<CREDITS
