@@ -355,12 +355,13 @@ local LOCALE=$1
 
 [[ -z $LOCALE ]] && error "LOCALE cannot be empty"
 #Search in /usr/share/X11/xkb/rules/xorg.lst
-[[ -z `grep -qc " $LOCALE " $KBD_RULES` ]] && error "LOCALE not valid (not in $KBD_RULES)"
+
+grep -qc " $LOCALE " $KBD_RULES || error "LOCALE not valid (not in $KBD_RULES)"
 
 #Search for /etc/default/keyboard
 [[ -f $KBD_DEFAULT ]] && error "$KBD_DEFAULT not found"
 
-if [[ -z `grep -qc XKBLAYOUT $KBD_DEFAULT` ]]
+if grep -qc XKBLAYOUT $KBD_DEFAULT`
   then
     sed -n -e "s/XKBLAYOUT=.*/XKBLAYOUT=\"$LOCALE\"/" -i $KBD_DEFAULT
   else
