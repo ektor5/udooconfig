@@ -28,6 +28,9 @@ ZONEINFO="/usr/share/zoneinfo/"
 KBD_DEFAULT="/etc/default/keyboard"
 KBD_RULES="/usr/share/X11/xkb/rules/xorg.lst"
 
+PREFIX="/usr/share/udoo-config"
+
+if [[ $1 == -z ]] && .exec $PREFIX/udoo-config-zenity.sh
 
 [[ -f /etc/udoo-config.conf ]] && . /etc/udoo-config.conf
 
