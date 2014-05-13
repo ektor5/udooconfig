@@ -13,12 +13,11 @@ TITLE="UDOO Configuration Tool"
 D="zenity"
 PRINTENV="fw_printenv"
 SETENV="fw_setenv"
-NTPDATE="ntpdate-debian"
-UDOO_USER="ubuntu"
-MMC="/dev/mmcblk0"
-PART="/dev/mmcblk0p1"
 
 [[ -f /etc/udoo-config.conf ]] && . /etc/udoo-config.conf
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/udoo-functions.sh
 
 error() {
   TEXT=$1
@@ -33,11 +32,11 @@ ok() {
   $D --title="$TITLE" --info --text="$TEXT"
 }
 
-ch_passwd()
+zch_passwd()
 {
-  ## ch_passwd [user] 
+  ## ch_passwd 
   
-  USER=$1  
+  local PASSWD
   PASSWD=`$D --title="$TITLE" --entry --text="Enter new password" --hide-text`
 
   (( $? )) && exit 1
@@ -49,14 +48,15 @@ ch_passwd()
 
   [[ $PASSWD != $PASSWR ]] && error 'Sorry, passwords do not match'
       
-  echo $USER:$PASSWD | chpasswd || error
-
+  ch_passwd $UDOO_USER $PASSWD
+      
   ok
 }
 
-ch_host()
+zch_host()
 {
-  UDOO_OLD=`cat /etc/hostname`
+  local UDOO_OLD=`cat /etc/hostname`
+  local UDOO_NEW
   UDOO_NEW=`$D --title="$TITLE" --entry --text="Enter hostname (current: $UDOO_OLD)" `
   
   (( $? )) && exit 1
@@ -67,28 +67,19 @@ ch_host()
  
   xhost +
  
-  if grep -q $UDOO_OLD /etc/hosts 
-  then 
-    sed -e "s/$UDOO_OLD/$UDOO_NEW/g" -i /etc/hosts 
-  else
-    echo "127.0.0.1 $UDOO_NEW" >> /etc/hosts
-  fi
-    
-  echo $UDOO_NEW > /etc/hostname
-  
-  # CHECK
-
-  [[ "$(cat /etc/hostname)" == 	"$UDOO_NEW" ]] && \
-  [[ "$(cat /etc/hostname)" =~ 	"$UDOO_NEW" ]] || error
+  ch_host $UDOO_NEW || error
 
   ok "Success! (New hostname: $UDOO_NEW)
 Please reboot!"
 }
 
-mem_split()
+zmem_split()
 {
+  local UDOO_ENV
+  local FBMEM
+  local GPUMEM
   declare -i FBMEM GPUMEM
-
+  
   UDOO_ENV=`$PRINTENV 2>&1`
 
   case $? in
@@ -141,35 +132,63 @@ mem_split()
 		  `
   ( (( $? )) || (( ! $GPUMEM )) ) && exit 1 	 
 
-  $SETENV memory "fbmem=${FBMEM}M gpu_reserved=${GPUMEM}M" || error
+  mem_split $FBMEM $GPUMEM || error
 
   sync
 
   ok "Success! (FBMEM=${FBMEM}M GPU_RESERVED=${GPUMEM}M)"
 }
 
-print_env()
+zprint_env()
 {
-  UDOO_ENV=`$PRINTENV 2>&1`
-
-  (( $? )) && error "$UDOO_ENV"
-
-  $PRINTENV 2>&1 | $D --width=400 --height=300 --title="$TITLE" --text-info --font="monospace,9"
+  print_env | $D --width=400 --height=300 --title="$TITLE" --text-info --font="monospace,9"
 }
 
-ntpdate_rtc()
+zntpdate_rtc()
 {
-  NTP=`$NTPDATE 2>&1`
-  case $? in
-  0) 	;; 
-  127) 	error "$NTPDATE not found!" ;;
-  *) 	error "$( echo $NTP | sed -e 's/.*\]\: //')" ;;
-  esac
-
-  HWC=`hwclock -w 2>&1`
-  (( $? )) && error $HWC
-  
+  ntpdate_rtc || error
   ok "Success! (Time now is `date`)"
+}
+
+zch_keyboard(){
+local LOCALE
+local UDOO_OLD=`grep XKBLAYOUT $KBD_DEFAULT | cut -d = -f 2 | tr -d \"`
+local UDOO_NEW
+UDOO_NEW=`$D --title="$TITLE" --entry --text="Enter new keyboard locale (current: $UDOO_OLD)" `
+
+(( $? )) && exit 1
+
+UDOO_NEW=`echo $UDOO_NEW | tr -d " \t\n\r" `
+
+[[ -z $UDOO_NEW ]] && error "LOCALE cannot be empty"
+
+ch_keyboard $UDOO_NEW || error 
+
+UDOO_NEW=`grep XKBLAYOUT $KBD_DEFAULT | cut -d = -f 2 | tr -d \"`
+
+ok "Locale has changed! (current: $UDOO_NEW)"
+
+}
+
+zch_timezone(){
+
+local LOCALE
+local UDOO_OLD=`readlink $ZONEFILE | cut -d/ -f5-`
+local UDOO_NEW
+UDOO_NEW=`$D --title="$TITLE" --entry --text="Enter new timezone (e.g. Europe/Rome)  (current: $UDOO_OLD)" `
+
+(( $? )) && exit 1
+
+UDOO_NEW=`echo $UDOO_NEW | tr -d " \t\n\r" `
+
+[[ -z $UDOO_NEW ]] && error "LOCALE cannot be empty"
+
+ch_timezone $UDOO_NEW || error 
+
+UDOO_NEW=`readlink $ZONEFILE | cut -d/ -f5-`
+
+ok "Timezone has changed! (current: $UDOO_NEW)"
+
 }
 
 expand_fs()
@@ -252,8 +271,11 @@ EOF
   ok "Root partition has been resized in the partition table ($PARTSIZE).\nThe filesystem will be enlarged upon the next reboot."
 }
 
-boot_default()
+zboot_default()
 {
+local BOOTSRC
+local BOOT
+
 BOOT=`$PRINTENV src 2>&1`
 
 (( $? )) && error "$BOOT"
@@ -274,18 +296,26 @@ BOOTSRC=`$D  --title="Default Boot Drive" \
 	  0		mmc		"SD Card" \
 	  0		net		"Network" \
 	`
-	
+(( $? )) && exit 1
 if [[ -n $BOOTSRC ]] 
   then 
-  BOOT=`$SETENV src $BOOTSRC 2>&1`
-  (( $? )) && error "$BOOT"
+    boot_default $BOOTSRC || error
+  else 
+    exit 
 fi
 
-ok "The default boot device is successfully changed"
+BOOT=`$PRINTENV src 2>&1`
+
+ok "The default boot device is successfully changed (current: $BOOT)"
 }
 
-boot_netvars()
+zboot_netvars()
 {
+local IPADDR
+local SERVERIP
+local NFSROOT
+local GET_CMD
+local BOOT
 
 IPADDR=`$PRINTENV ipaddr 2>&1`
 
@@ -305,14 +335,13 @@ GET_CMD=`$PRINTENV get_cmd 2>&1`
 
 
 FORM=`$D --forms --title="Set the environment values for netboot" \
-	--text="Set the environment values for netboot"
+	--text="Set the environment values for netboot" \
 	--add-entry="UDOO IP config (current: $IPADDR) [ip|dhcp]" \
 	--add-entry="NTP Server IP (current: $SERVERIP)" \
-	--add-entry="NTP File System Location (current: $NFSROOT)" \
-	--add-list="uImage Retrival Method (current: $GET_CMD)" \
-	--list-values="dhcp|tftp|ntp"   \
-	`
+	--add-entry="NTP File System Location (current: $NFSROOT)" 
+`
 
+(( $? )) && exit 1
 IPADDR=`echo $FORM | cut -d \| -f 1`
 
 [[ -z $IPADDR ]] && error "IPADDR cannot be empty"
@@ -325,28 +354,36 @@ NFSROOT=`echo $FORM | cut -d \| -f 3`
 
 [[ -z $NFSROOT ]] && error "NFSROOT cannot be empty"
 
-GET_CMD=`echo $FORM | cut -d \| -f 4`
+GET_CMD=`$D --title="$TITLE" \
+	--text="uImage Retrival Method (current: $GET_CMD)" \
+	--width=400 \
+	--height=300 \
+	--list \
+	--radiolist \
+	--hide-header \
+	--print-column="ALL" \
+	--column="Checkbox" \
+	--column="Method" \
+	0 "dhcp" \
+	0 "tftp" \
+	0 "ntp"  \
+	`
+(( $? )) && exit 1
 
 [[ -z $GET_CMD ]] && error "You have to specify a retrival method"
 
+boot_netvars $IPADDR $SERVERIP $NFSROOT $GET_CMD || error 
+  
+ok "The netboot environment variables has been changed successfully"
 
-  BOOT=`$SETENV ipaddr $IPADDR 2>&1`
-  (( $? )) && error "$BOOT"
-
-  BOOT=`$SETENV serverip $SERVERIP 2>&1`
-  (( $? )) && error "$BOOT"
-  
-  BOOT=`$SETENV nfsroot $NFSROOT 2>&1`
-  (( $? )) && error "$BOOT"
-  
-  BOOT=`$SETENV get_cmd $GET_CMD 2>&1`
-  (( $? )) && error "$BOOT"
-  
-  ok "The netboot environment variables has been changed successfully"
 }
 
-boot_mmcvars()
+zboot_mmcvars()
 {
+
+local MMCPART
+local MMCROOT
+local FORM
 
 MMCPART=`$PRINTENV mmcpart 2>&1`
 
@@ -356,13 +393,12 @@ MMCROOT=`$PRINTENV mmcroot 2>&1`
 
 (( $? )) && error "$MMCROOT"
 
-
 FORM=`$D --forms --title="Set the environment values for mmcboot" \
 	--text="Set the environment values for mmcboot" \
 	--add-entry="Partition Number (current: $MMCPART) [1-4]" \
 	--add-entry="MMC Device Filename (current: $MMCROOT)" \
 	`
-
+(( $? )) && exit 1
 MMCPART=`echo $FORM | cut -d \| -f 1`
 
 [[ -z $MMCPART ]] && error "MMCPART cannot be empty"
@@ -371,19 +407,18 @@ MMCROOT=`echo $FORM | cut -d \| -f 2`
 
 [[ -z $MMCROOT ]] && error "MMCROOT cannot be empty"
 
-
-  BOOT=`$SETENV mmcpart $MMCPART 2>&1`
-  (( $? )) && error "$BOOT"
-
-  BOOT=`$SETENV mmcroot $MMCROOT 2>&1`
-  (( $? )) && error "$BOOT"
+boot_mmcvars $MMCPART $MMCROOT || error
  
-  ok "The mmcboot environment variables has been changed successfully"
+ok "The mmcboot environment variables has been changed successfully"
   
 }
 
-boot_satavars()
+zboot_satavars()
 {
+
+local SATAPART
+local SATAROOT
+local FORM
 
 SATAPART=`$PRINTENV satapart 2>&1`
 
@@ -399,7 +434,7 @@ FORM=`$D --forms --title="Set the environment values for sataboot" \
 	--add-entry="Partition Number (current: $SATAPART) [1-4]" \
 	--add-entry="SATA Device Filename (current: $SATAROOT)" \
 	`
-
+(( $? )) && exit 1
 SATAPART=`echo $FORM | cut -d \| -f 1`
 
 [[ -z $SATAPART ]] && error "SATAPART cannot be empty"
@@ -409,18 +444,18 @@ SATAROOT=`echo $FORM | cut -d \| -f 2`
 [[ -z $SATAROOT ]] && error "SATAROOT cannot be empty"
 
 
-  BOOT=`$SETENV satapart $SATAPART 2>&1`
-  (( $? )) && error "$BOOT"
-
-  BOOT=`$SETENV sataroot $SATAROOT 2>&1`
-  (( $? )) && error "$BOOT"
+boot_satavars $SATAPART $SATAROOT || error
  
-  ok "The sataboot environment variables has been changed successfully"
+ok "The sataboot environment variables has been changed successfully"
   
 }
 
-boot_script()
+zboot_script()
 {
+local BOOT
+local SCRIPT
+local FORM
+
 BOOT=`$PRINTENV src 2>&1`
 
 (( $? )) && error "$BOOT"
@@ -434,24 +469,22 @@ FORM=`$D --forms --title="Set the boot script" \
 	--text="Set the boot script variables that will be executed on the root of the default boot device (current: $BOOT)" \
 	--add-entry="Script Filename (current: $SCRIPT)" \
 	`
-
+(( $? )) && exit 1
 SCRIPT=`echo $FORM`
 
 [[ -z $SCRIPT ]] && error "SCRIPT cannot be empty"
 
-BOOT=`$SETENV script $SCRIPT 2>&1`
-  (( $? )) && error "$BOOT"
- 
-SCRIPT=`$PRINTENV script 2>&1`
-
-(( $? )) && error "$SCRIPT"
+boot_script $SCRIPT || error
  
   ok "The boot script variable has been changed successfully (now: $SCRIPT)"
 
 }
 
-boot_video()
+zboot_video()
 {
+local VIDEO_DEV
+local VIDEO_RES
+local VIDEO
 
 VIDEO=`$PRINTENV video 2>&1`
 
@@ -460,33 +493,75 @@ VIDEO=`$PRINTENV video 2>&1`
 VIDEO_DEV=`echo $VIDEO | cut -d "=" -f 3- | cut -d "," -f 1`  # e.g. video=mxcfb0:dev=hdmi,1920x1080M@60,bpp=32
 VIDEO_RES=`echo $VIDEO | cut -d "=" -f 3- | cut -d "," -f 2-`  # e.g. video=mxcfb0:dev=hdmi,1920x1080M@60,bpp=32
 
-FORM=`$D --forms --title="Set the video output environment variables" \
-	--text="Set the video output environment variables" \
-	--add-list="Default video device (current: $VIDEO_DEV)" \
-	--list-values="hdmi|lvds" \
-	--add-list="Default resolution for video device" \
-	--list-values="1024x768@60,bpp=32|1366x768@60,bpp=32|1920x1080M@60,bpp=32" \
-	`
+#zenity segfaults, turn back to --list
 
-VIDEO_DEV=`echo $FORM | cut -d "|" -f 1` 
+# FORM=`$D --forms --title="Set the video output environment variables" \
+# 	--text="Set the video output environment variables" \
+# 	--add-list="Default video device (current: $VIDEO_DEV)" \
+# 	--list-values="hdmi|lvds" \
+# 	--add-list="Default resolution for video device" \
+# 	--list-values="1024x768@60,bpp=32|1366x768@60,bpp=32|1920x1080M@60,bpp=32" \
+# 	`
+#VIDEO_DEV=`echo $FORM | cut -d "|" -f 1` 
+#VIDEO_RES=`echo $FORM | cut -d "|" -f 2` 
+
+VIDEO_DEV=`$D --list --title="Set the video output environment variables" \
+		  --radiolist \
+		  --hide-header \
+		  --hide-column=2 \
+		  --column="Checkbox" \
+		  --column="Option" \
+		  --column="Video" \
+		  --text="Default video device (current: $VIDEO_DEV)" \
+		  0	"hdmi" 	 "HDMI" \
+		  0	"ldb1" 	 "LVDS 7\"" \
+		  0	"ldb2" 	 "LVDS 15\"" \
+`
+
+(( $? )) && exit 1
 
 [[ -z $VIDEO_DEV ]] && error "VIDEO_DEV cannot be empty"
 
-VIDEO_RES=`echo $FORM | cut -d "|" -f 2` 
+case $VIDEO_DEV in 
+  hdmi) VIDEO_RES=`$D --list --title="Set the video output environment variables" \
+	    --radiolist \
+	    --hide-header \
+	    --column="Checkbox" \
+	    --column="Option" \
+	    --text="Default resolution for video device" \
+	  0 	"1024x768@60,bpp=32" \
+	  0 	"1366x768@60,bpp=32" \
+	  0 	"1920x1080M@60,bpp=32" \
+	`
+	(( $? )) && exit 1
+	;;
+  
+  ldb1) VIDEO_RES="LDB-WVGA,if=RGB666,bpp=32" ;;
+  ldb2) VIDEO_RES="1366x768M@60,if=RGB24,bpp=32" ;;
 
+esac 
+ 
 [[ -z $VIDEO_RES ]] && error "VIDEO_RES cannot be empty"
 
-VIDEO=`$SETENV video "video=mxcfb0:dev=$VIDEO_DEV,$VIDEO_RES" 2>&1`
-  (( $? )) && error "$VIDEO"
-
-VIDEO=`$PRINTENV video 2>&1`
-
-(( $? )) && error "$VIDEO"
+boot_video $VIDEO_DEV $VIDEO_RES || error
   
 ok "The boot video variable has been changed successfully (now: $VIDEO)"
 }
 
-boot_mgr()
+zboot_reset(){
+#boot_reset()
+
+  $D --question \
+      --text="The u-boot environment stored in your SD is going to be erased and overwritten by this configurator's default values. 
+You are advised to backup your actual environment before proceeding." || exit 1
+
+boot_reset || error
+
+ok "The u-boot environment has been resetted successfully"
+
+}
+
+zboot_mgr()
 {
 until (( $EXIT ))
 do
@@ -508,34 +583,82 @@ do
 	  0		5		"Use boot script" \
 	  0		6		"Set default video output" \
 	  0		7		"Change RAM memory layout" \
+	  0		8		"Reset U-Boot Environment" \
 	  0		9		"Show U-Boot Environment" \
 	`  
   EXIT=$?
   
   case $CHOOSE in
 
-    1) (boot_default) ;;
+    1) (zboot_default) ;;
 
-    2) (boot_netvars) ;;
+    2) (zboot_netvars) ;;
     
-    3) (boot_mmcvars) ;;
+    3) (zboot_mmcvars) ;;
     
-    4) (boot_satavars) ;;
+    4) (zboot_satavars) ;;
 
-    5) (boot_script) ;;
+    5) (zboot_script) ;;
 
-    6) (boot_video) ;;
+    6) (zboot_video) ;;
     
-    7) (mem_split) ;;
+    7) (zmem_split) ;;
+    
+    8) (zboot_reset) ;;
    
-    9) (print_env) ;;
+    9) (zprint_env) ;;
     
   esac
 
 done
 }
 
-credits()
+zsys_mgr()
+{
+until (( $EXIT ))
+do
+  CHOOSE=`$D  --title="System Manager" \
+	  --width=400 \
+	  --height=300 \
+	  --list \
+	  --text="Choose an option:" \
+	  --radiolist \
+	  --hide-header \
+	  --hide-column=2 \
+	  --column="Checkbox" \
+	  --column="Number" \
+	  --column="Option" \
+	  0		1		"Change User Password" \
+	  0		2		"Change Hostname" \
+	  0		3		"Change Keyboard Layout" \
+	  0		4		"Change Timezone Setting" \
+	  0		5		"Change VNC Password" \
+	  0		6		"Update date from network and sync with RTC" \
+	  0		7		"Expand root partition to disk max capacity" 
+	`  
+  EXIT=$?
+  
+  case $CHOOSE in
+
+    1) (zch_passwd $UDOO_USER) ;;
+
+    2) (zch_host) ;;
+    
+    3) (zch_keyboard) ;;
+
+    4) (zch_timezone) ;;
+    
+    5) (zch_vncpasswd) ;;
+     
+    6) (zntpdate_rtc) ;;
+    
+    7) (expand_fs) ;;       
+  esac
+
+done
+}
+
+zcredits()
 {
   $D 	--title="Credits" --info --text="
 Credits by:
@@ -565,31 +688,19 @@ do
 	  --column="Checkbox" \
 	  --column="Number" \
 	  --column="Option" \
-	  0		3		"Service Management" \
-	  0		4		"U-Boot Manager" \
-	  0		1		"Change User Password" \
-	  0		2		"Change Hostname" \
-	  0		6		"Update date from network and sync with RTC" \
-	  0		7		"Expand root partition to disk max capacity" \
+	  0		1		"System Manager" \
+	  0		2		"U-Boot Manager" \
 	  0		9		"Credits" \
 	      `
   EXIT=$?
   
   case $CHOOSE in
 
-    1) (ch_passwd $UDOO_USER) ;;
+    1) (zsys_mgr) ;;
 
-    2) (ch_host) ;;
+    2) (zboot_mgr) ;;   
 
-    3) (bum) ;;
-    
-    4) (boot_mgr) ;;    
-    
-    6) (ntpdate_rtc) ;;
-
-    7) (expand_fs) ;;
-
-    9) (credits) ;;
+    9) (zcredits) ;;
 
   esac
 

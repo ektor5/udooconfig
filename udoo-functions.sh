@@ -14,6 +14,24 @@ then
   exit 1
 fi
 
+PRINTENV="fw_printenv"
+SETENV="fw_setenv"
+NTPDATE="ntpdate-debian"
+CHKCONF="chkconfig"
+UDOO_USER="ubuntu"
+MMC="/dev/mmcblk0"
+PART="/dev/mmcblk0p1"
+SRCFILE="udoo-defaultenv.src"
+INSSERV="/usr/lib/insserv/insserv"
+
+ZONEFILE="/etc/localtime"
+ZONEINFO="/usr/share/zoneinfo/"
+
+KBD_DEFAULT="/etc/default/keyboard"
+KBD_RULES="/usr/share/X11/xkb/rules/xorg.lst"
+declare -a DAEMON_LIST
+DAEMON_LIST=( ssh openvnc ntp )
+
 error() {
   #error($E_TEXT,$E_CODE)
 
@@ -45,14 +63,13 @@ ch_passwd() {
 
   echo $USER:$PASSWD | chpasswd || error "chpasswd failed"
 
-  ok
 }
 
 ch_host() {
   #ch_host($UDOO_NEW)
   local UDOO_OLD=`cat /etc/hostname`
-  UDOO_NEW=$1
-  local UDOO_NEW=`echo $UDOO_NEW | tr -d " \t\n\r" `
+  local UDOO_NEW=$1
+  UDOO_NEW=`echo $UDOO_NEW | tr -d " \t\n\r" `
 
   if grep -q " $UDOO_OLD\$" /etc/hosts 
   then 
@@ -68,8 +85,6 @@ ch_host() {
   [[ "$(cat /etc/hostname)" == 	"$UDOO_NEW" ]] && \
   [[ "$(cat /etc/hostname)" =~ 	"$UDOO_NEW" ]] || error
 
-  ok "Success! (New hostname: $UDOO_NEW)
-Please reboot!"
 }
 
 mem_split() {  
@@ -99,7 +114,6 @@ mem_split() {
 
   sync
 
-  ok "Success! (FBMEM=${FBMEM}M GPU_RESERVED=${GPUMEM}M)"
 }
 
 print_env() {
@@ -124,7 +138,6 @@ ntpdate_rtc() {
   HWC=`hwclock -w 2>&1`
   (( $? )) && error $HWC
   
-  ok "Success! (Time now is `date`)"
 }
 
 expand_fs() {
@@ -198,7 +211,6 @@ EOF
   
   local PARTSIZE=`parted $MMC -ms p | grep \^1 | cut -f 3 -d: `
 
-  ok "Root partition has been resized in the partition table ($PARTSIZE).\nThe filesystem will be enlarged upon the next reboot."
 }
 
 boot_default() {
@@ -206,17 +218,14 @@ boot_default() {
 local BOOTSRC=$1
 local BOOT
 
-BOOT=`$PRINTENV src 2>&1`
-
-(( $? )) && error "$BOOT"
-
 if [[ -n $BOOTSRC ]] 
   then 
-  BOOT=`$SETENV src $BOOTSRC 2>&1`
-  (( $? )) && error "$BOOT"
+    BOOT=`$SETENV src $BOOTSRC 2>&1`
+    (( $? )) && error "$BOOT"
+  else 
+    error "BOOTSRC cannot be empty"
 fi
 
-ok "The default boot device is successfully changed"
 }
 
 boot_netvars() {
@@ -250,7 +259,6 @@ local BOOT
   BOOT=`$SETENV get_cmd $GET_CMD 2>&1`
   (( $? )) && error "$BOOT"
   
-  ok "The netboot environment variables has been changed successfully"
 }
 
 boot_mmcvars() {
@@ -270,15 +278,13 @@ local BOOT
   BOOT=`$SETENV mmcroot $MMCROOT 2>&1`
   (( $? )) && error "$BOOT"
  
-  ok "The mmcboot environment variables has been changed successfully"
-  
 }
 
 boot_satavars() {
 #boot_mmcvars($SATAPART, $SATAROOT)
 
 local SATAPART=$1
-local SATAPART=$2
+local SATAROOT=$2
 local BOOT
 
 [[ -z $SATAPART ]] && error "SATAPART cannot be empty"
@@ -291,8 +297,6 @@ local BOOT
   BOOT=`$SETENV sataroot $SATAROOT 2>&1`
   (( $? )) && error "$BOOT"
  
-  ok "The sataboot environment variables has been changed successfully"
-  
 }
 
 boot_script() {
@@ -304,12 +308,12 @@ local SCRIPT=$1
 
 BOOT=`$SETENV script $SCRIPT 2>&1`
   (( $? )) && error "$BOOT"
- 
+
+sync  
+  
 SCRIPT=`$PRINTENV script 2>&1`
 
 (( $? )) && error "$SCRIPT"
- 
-  ok "The boot script variable has been changed successfully (now: $SCRIPT)"
 
 }
 
@@ -326,36 +330,44 @@ local VIDEO
 VIDEO=`$SETENV video "video=mxcfb0:dev=$VIDEO_DEV,$VIDEO_RES" 2>&1`
 (( $? )) && error "$VIDEO"
 
+sync
+
 VIDEO=`$PRINTENV video 2>&1`
 (( $? )) && error "$VIDEO"
   
-ok "The boot video variable has been changed successfully (now: $VIDEO)"
 }
 
 boot_reset(){
 #boot_reset()
 
-local RESET
+local RESET 
 
-RESET=`$PRINTENV | cut -d = -f 1 | $SETENV -s - 2>&1`
-
+#Storing variables names
+RESET=`$PRINTENV 2>/dev/null | cut -d= -f1`
 (( $? )) && error $RESET
 
+#Wipe
+RESET=`echo $RESET | $SETENV -s - 2>&1`
+(( $? )) && error $RESET
+
+sync
+
+#Restore
 RESET=`$SETENV -s $SRCFILE 2>&1`
-
 (( $? )) && error $RESET
 
-ok "The u-boot environment has been resetted successfully"
+sync
+
 
 }
 
-ch_locale(){
+ch_keyboard(){
 #ch_locale($LOCALE)
 local LOCALE=$1
 
 [[ -z $LOCALE ]] && error "LOCALE cannot be empty"
-#Search in /usr/share/X11/xkb/rules/xorg.lst
 
+#Search in /usr/share/X11/xkb/rules/xorg.lst
 grep -qc " $LOCALE " $KBD_RULES || error "LOCALE not valid (not in $KBD_RULES)"
 
 #Search for /etc/default/keyboard
@@ -363,18 +375,14 @@ grep -qc " $LOCALE " $KBD_RULES || error "LOCALE not valid (not in $KBD_RULES)"
 
 if grep -qc XKBLAYOUT $KBD_DEFAULT
   then
-    sed -n -e "s/XKBLAYOUT=.*/XKBLAYOUT=\"$LOCALE\"/" -i $KBD_DEFAULT
+    sed -e "s/XKBLAYOUT=.*/XKBLAYOUT=\"$LOCALE\"/" -i $KBD_DEFAULT
   else
     echo XKBLAYOUT=\"$LOCALE\" >> $KBD_DEFAULT
 fi
 
 setxkbmap $LOCALE
 
-local E_CODE=$?
-
 (( $? )) && error "Cannot set keyboard mapping directly"
-
-ok
 
 }
 
@@ -385,15 +393,54 @@ ZONE=$1
 
 [[ -z $ZONE ]] && error "ZONE cannot be empty"
 
-[[ -f $ZONEFILE ]] || error "$ZONEFILE does not exist"
-
 [[ -f $ZONEINFO$ZONE ]] || error "$ZONEINFO$ZONE does not exist"
+
+[[ -f $ZONEFILE ]] && rm $ZONEFILE
 
 ln -sf $ZONEINFO$ZONE $ZONEFILE
 
 (( $? )) && error "Cannot set current timezone"
 
-ok
+}
+
+daemonctl()
+{
+#daemonctl($DAEMON,$OPT)
+
+#check if insserv is where it should be, if not, symlink it
+[[ -f /sbin/insserv ]] || [[ -f $INSSERV ]] && ln -sf $INSSERV /sbin/insserv
+
+(( $? )) && error "Failed to symlink $INSSERV to /sbin/insserv"
+
+local DAEMON=$1
+local OPT=$2
+
+#filter
+case $OPT in
+  on)	SELECT=on  ;; 
+  off) 	SELECT=off ;; 
+  *)    SELECT="" ;;
+esac
+
+if [[ -z $DAEMON ]] 
+then
+  #LIST ALL
+  $CHKCONF 2>/dev/null  
+else
+  #DO SOMETHING
+  echo $CHKCONF $DAEMON $SELECT 1>&2
+  $CHKCONF $DAEMON $SELECT 2>/dev/null
+  E_CODE=$?
+  (( $E_CODE )) && error "Cannot install/remove service $DAEMON"
+
+fi 
+
+return 0 
+}
+
+ch_vncpasswd(){
+
+echo TODO
 
 }
 
