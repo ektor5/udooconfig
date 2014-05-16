@@ -30,12 +30,15 @@ KBD_RULES="/usr/share/X11/xkb/rules/xorg.lst"
 
 PREFIX="/usr/share/udoo-config"
 
-if [[ $1 == -z ]] && .exec $PREFIX/udoo-config-zenity.sh
+if [[ $1 == -z ]] 
+then
+  exec $PREFIX/udoo-config-zenity.sh
+  exit $?
+fi
 
 [[ -f /etc/udoo-config.conf ]] && . /etc/udoo-config.conf
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/udoo-functions.sh
+source $PREFIX/udoo-functions.sh
 
 if [ $(id -u) -ne 0 ] 
 then

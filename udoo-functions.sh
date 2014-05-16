@@ -380,9 +380,13 @@ if grep -qc XKBLAYOUT $KBD_DEFAULT
     echo XKBLAYOUT=\"$LOCALE\" >> $KBD_DEFAULT
 fi
 
+(( $? )) && error "Cannot set keyboard layout as default setting"
+
 setxkbmap $LOCALE
 
-(( $? )) && error "Cannot set keyboard mapping directly"
+(( $? )) && error "Cannot set keyboard layout directly"
+
+return 0
 
 }
 
@@ -462,4 +466,5 @@ cat <<USAGE
 TODO
 
 USAGE
+alias ll="ls -lv --group-directories-first"
 }

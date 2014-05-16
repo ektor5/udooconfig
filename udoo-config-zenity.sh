@@ -151,20 +151,66 @@ zntpdate_rtc()
 }
 
 zch_keyboard(){
-local LOCALE
-local UDOO_OLD=`grep XKBLAYOUT $KBD_DEFAULT | cut -d = -f 2 | tr -d \"`
+#local UDOO_OLD=`grep XKBLAYOUT $KBD_DEFAULT | cut -d = -f 2 | tr -d \"`
+local UDOO_OLD=`setxkbmap -query | sed -e 's/^layout:\ *\(\w*\)/\1/p' -n`
 local UDOO_NEW
-UDOO_NEW=`$D --title="$TITLE" --entry --text="Enter new keyboard locale (current: $UDOO_OLD)" `
 
+take_locales(){
+#take_locales($current) 
+#parser
+local flag=false
+local line
+local current=$1
+
+while read line
+#read RULES lines
+do  
+  #check flag
+  if [[ $flag != "true" ]]
+    then
+      #trash every line until !layout comes
+      [[ $line =~ '! layout' ]] && \
+      flag=true
+    else 
+      #end reading 
+      [[ $line == '' ]] && return
+      #process line
+      line=`echo $line | sed -e 's/ \s*/ \"/' -e 's/$/\" /'`
+      #if line is current layout say TRUE
+      if [[ $line =~ ^$current ]]
+	then echo TRUE $line
+	else echo FALSE $line
+      fi
+  fi 
+done < <(cat $KBD_RULES)
+#named pipe
+}
+
+UDOO_NEW=`take_locales $UDOO_OLD | xargs \
+	     $D --title="$TITLE" --list \
+	     --text="Enter new keyboard locale" \
+	     --width=400 \
+	     --height=300 \
+	     --radiolist \
+	     --hide-header \
+	     --print-column=2 \
+	     --hide-column=2 \
+	     --column="Checkbox" \
+	     --column="Keycode" \
+	     --column="Locale" \
+	     `
+  
 (( $? )) && exit 1
 
-UDOO_NEW=`echo $UDOO_NEW | tr -d " \t\n\r" `
+[[ $UDOO_NEW == $UDOO_OLD ]] && exit 1
+
+#UDOO_NEW=`echo $UDOO_NEW | tr -d " \t\n\r" `
 
 [[ -z $UDOO_NEW ]] && error "LOCALE cannot be empty"
 
 ch_keyboard $UDOO_NEW || error 
 
-UDOO_NEW=`grep XKBLAYOUT $KBD_DEFAULT | cut -d = -f 2 | tr -d \"`
+UDOO_NEW=`grep XKBLAYOUT $KBD_DEFAULT | cut -d= -f2 | tr -d \"`
 
 ok "Locale has changed! (current: $UDOO_NEW)"
 
