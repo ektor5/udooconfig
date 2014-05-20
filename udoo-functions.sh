@@ -26,6 +26,8 @@ INSSERV="/usr/lib/insserv/insserv"
 
 ZONEFILE="/etc/localtime"
 ZONEINFO="/usr/share/zoneinfo/"
+declare -a ZONECONTINENTS
+ZONECONTINENTS=('America' 'Asia' 'Europe' 'Australia' 'Africa' 'Atlantic' 'Pacific'  'Antartica' 'Etc')
 
 KBD_DEFAULT="/etc/default/keyboard"
 KBD_RULES="/usr/share/X11/xkb/rules/xorg.lst"
@@ -397,13 +399,17 @@ ZONE=$1
 
 [[ -z $ZONE ]] && error "ZONE cannot be empty"
 
+# /usr/share/zoneinfo/ + ZONE
 [[ -f $ZONEINFO$ZONE ]] || error "$ZONEINFO$ZONE does not exist"
 
 [[ -f $ZONEFILE ]] && rm $ZONEFILE
 
+# /etc/localtime -> /usr/share/zoneinfo/ + ZONE
 ln -sf $ZONEINFO$ZONE $ZONEFILE
 
 (( $? )) && error "Cannot set current timezone"
+
+return 0 
 
 }
 

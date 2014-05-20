@@ -221,11 +221,67 @@ zch_timezone(){
 local LOCALE
 local UDOO_OLD=`readlink $ZONEFILE | cut -d/ -f5-`
 local UDOO_NEW
-UDOO_NEW=`$D --title="$TITLE" --entry --text="Enter new timezone (e.g. Europe/Rome)  (current: $UDOO_OLD)" `
+local CONTINENT
+#UDOO_NEW=`$D --title="$TITLE" --entry --text="Enter new timezone (e.g. Europe/Rome)  (current: $UDOO_OLD)" `
+
+take_continents(){
+#take_continents($UDOO_OLD)
+local CURRENT=`echo $1 | cut -d/ -f1`
+
+for CONT in ${ZONECONTINENTS[@]}
+do
+  if [[ $CONT =~ $CURRENT ]]
+  then
+    echo TRUE $CONT
+  else
+    echo FALSE $CONT
+  fi
+done
+
+}
+
+CONTINENT=`take_continents $UDOO_OLD | xargs $D --title="$TITLE" --list \
+	     --text="Enter new keyboard locale" \
+	     --width=400 \
+	     --height=300 \
+	     --radiolist \
+	     --hide-header \
+	     --print-column=2 \
+	     --column="Checkbox" \
+	     --column="Keycode" \
+	     `
 
 (( $? )) && exit 1
 
-UDOO_NEW=`echo $UDOO_NEW | tr -d " \t\n\r" `
+take_zone(){
+#take_continents($OLD $CONTINENT)
+local CURRENT=`echo $1 | cut -d/ -f2`
+local CONTINENT=$2
+
+for CONT in `ls $ZONEINFO$CONTINENT`
+do
+  if [[ $CONT =~ $CURRENT ]]
+  then
+    echo TRUE $CONT
+  else
+    echo FALSE $CONT
+  fi
+done
+}
+
+ZONE=`take_zone $UDOO_OLD $CONTINENT | xargs $D --title="$TITLE" --list \
+	     --text="Enter new keyboard locale" \
+	     --width=400 \
+	     --height=300 \
+	     --radiolist \
+	     --hide-header \
+	     --print-column=2 \
+	     --column="Checkbox" \
+	     --column="Keycode" \
+	     `
+(( $? )) && exit 1
+
+UDOO_NEW=`echo $CONTINENT/$ZONE | tr -d " \t\n\r" `
 
 [[ -z $UDOO_NEW ]] && error "LOCALE cannot be empty"
 
@@ -719,6 +775,22 @@ for UDOO Team"
 if [ $(id -u) -ne 0 ] 
 then
   error "You're not root! Try execute: sudo udoo-config.sh" 
+fi
+
+if [[ 0 -lt $#  ]]
+then
+  COMMAND=$1
+  shift
+  
+  $COMMAND $@
+  
+  E_CODE=$?
+  case $E_CODE in
+  127) usage ;; 
+    *);;
+  esac
+  
+  exit $E_CODE
 fi
 
 until (( $EXIT ))
