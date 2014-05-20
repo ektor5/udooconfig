@@ -49,8 +49,7 @@ zch_passwd()
   [[ $PASSWD != $PASSWR ]] && error 'Sorry, passwords do not match'
       
   ch_passwd $UDOO_USER $PASSWD
-      
-  ok
+ 
 }
 
 zch_host()
@@ -67,10 +66,7 @@ zch_host()
  
   xhost +
  
-  ch_host $UDOO_NEW || error
-
-  ok "Success! (New hostname: $UDOO_NEW)
-Please reboot!"
+  ch_host $UDOO_NEW 
 }
 
 zmem_split()
@@ -132,11 +128,7 @@ zmem_split()
 		  `
   ( (( $? )) || (( ! $GPUMEM )) ) && exit 1 	 
 
-  mem_split $FBMEM $GPUMEM || error
-
-  sync
-
-  ok "Success! (FBMEM=${FBMEM}M GPU_RESERVED=${GPUMEM}M)"
+  mem_split $FBMEM $GPUMEM
 }
 
 zprint_env()
@@ -146,151 +138,145 @@ zprint_env()
 
 zntpdate_rtc()
 {
-  ntpdate_rtc || error
-  ok "Success! (Time now is `date`)"
+  ntpdate_rtc
 }
 
 zch_keyboard(){
-#local UDOO_OLD=`grep XKBLAYOUT $KBD_DEFAULT | cut -d = -f 2 | tr -d \"`
-local UDOO_OLD=`setxkbmap -query | sed -e 's/^layout:\ *\(\w*\)/\1/p' -n`
-local UDOO_NEW
+  #local UDOO_OLD=`grep XKBLAYOUT $KBD_DEFAULT | cut -d = -f 2 | tr -d \"`
+  local UDOO_OLD=`setxkbmap -query | sed -e 's/^layout:\ *\(\w*\)/\1/p' -n`
+  local UDOO_NEW
 
-take_locales(){
-#take_locales($current) 
-#parser
-local flag=false
-local line
-local current=$1
+  take_locales(){
+  #take_locales($current) 
+  #parser
+  local flag=false
+  local line
+  local current=$1
 
-while read line
-#read RULES lines
-do  
-  #check flag
-  if [[ $flag != "true" ]]
-    then
-      #trash every line until !layout comes
-      [[ $line =~ '! layout' ]] && \
-      flag=true
-    else 
-      #end reading 
-      [[ $line == '' ]] && return
-      #process line
-      line=`echo $line | sed -e 's/ \s*/ \"/' -e 's/$/\" /'`
-      #if line is current layout say TRUE
-      if [[ $line =~ ^$current ]]
-	then echo TRUE $line
-	else echo FALSE $line
-      fi
-  fi 
-done < <(cat $KBD_RULES)
-#named pipe
-}
+  while read line
+  #read RULES lines
+  do  
+    #check flag
+    if [[ $flag != "true" ]]
+      then
+	#trash every line until !layout comes
+	[[ $line =~ '! layout' ]] && \
+	flag=true
+      else 
+	#end reading 
+	[[ $line == '' ]] && return
+	#process line
+	line=`echo $line | sed -e 's/ \s*/ \"/' -e 's/$/\" /'`
+	#if line is current layout say TRUE
+	if [[ $line =~ ^$current ]]
+	  then echo TRUE $line
+	  else echo FALSE $line
+	fi
+    fi 
+  done < <(cat $KBD_RULES)
+  #named pipe
+  }
 
-UDOO_NEW=`take_locales $UDOO_OLD | xargs \
-	     $D --title="$TITLE" --list \
-	     --text="Enter new keyboard locale" \
-	     --width=400 \
-	     --height=300 \
-	     --radiolist \
-	     --hide-header \
-	     --print-column=2 \
-	     --hide-column=2 \
-	     --column="Checkbox" \
-	     --column="Keycode" \
-	     --column="Locale" \
-	     `
+  UDOO_NEW=`take_locales $UDOO_OLD | xargs \
+	      $D --title="$TITLE" --list \
+	      --text="Enter new keyboard locale" \
+	      --width=400 \
+	      --height=300 \
+	      --radiolist \
+	      --hide-header \
+	      --print-column=2 \
+	      --hide-column=2 \
+	      --column="Checkbox" \
+	      --column="Keycode" \
+	      --column="Locale" \
+	      `
+    
+  (( $? )) && exit 1
   
-(( $? )) && exit 1
+  unset take_locales
+  
+  [[ $UDOO_NEW == $UDOO_OLD ]] && exit 1
 
-[[ $UDOO_NEW == $UDOO_OLD ]] && exit 1
+  #UDOO_NEW=`echo $UDOO_NEW | tr -d " \t\n\r" `
+    
+  [[ -z $UDOO_NEW ]] && error "LOCALE cannot be empty"
 
-#UDOO_NEW=`echo $UDOO_NEW | tr -d " \t\n\r" `
-
-[[ -z $UDOO_NEW ]] && error "LOCALE cannot be empty"
-
-ch_keyboard $UDOO_NEW || error 
-
-UDOO_NEW=`grep XKBLAYOUT $KBD_DEFAULT | cut -d= -f2 | tr -d \"`
-
-ok "Locale has changed! (current: $UDOO_NEW)"
-
+  ch_keyboard $UDOO_NEW 
 }
 
 zch_timezone(){
 
-local LOCALE
-local UDOO_OLD=`readlink $ZONEFILE | cut -d/ -f5-`
-local UDOO_NEW
-local CONTINENT
-#UDOO_NEW=`$D --title="$TITLE" --entry --text="Enter new timezone (e.g. Europe/Rome)  (current: $UDOO_OLD)" `
+  local UDOO_OLD=`readlink $ZONEFILE | cut -d/ -f5-`
+  local UDOO_NEW
+  local CONTINENT
+  local ZONE
+  
+  take_continents()
+  {
+  #take_continents($UDOO_OLD)
+  local CURRENT=`echo $1 | cut -d/ -f1`
 
-take_continents(){
-#take_continents($UDOO_OLD)
-local CURRENT=`echo $1 | cut -d/ -f1`
+  for CONT in ${ZONECONTINENTS[@]}
+  do
+    if [[ $CONT =~ $CURRENT ]]
+    then
+      echo TRUE $CONT
+    else
+      echo FALSE $CONT
+    fi
+  done
+  }
 
-for CONT in ${ZONECONTINENTS[@]}
-do
-  if [[ $CONT =~ $CURRENT ]]
-  then
-    echo TRUE $CONT
-  else
-    echo FALSE $CONT
-  fi
-done
+  CONTINENT=`take_continents $UDOO_OLD | xargs $D --title="$TITLE" --list \
+	      --text="Enter new keyboard locale" \
+	      --width=400 \
+	      --height=300 \
+	      --radiolist \
+	      --hide-header \
+	      --print-column=2 \
+	      --column="Checkbox" \
+	      --column="Keycode" \
+	      `
 
-}
+  (( $? )) && exit 1
 
-CONTINENT=`take_continents $UDOO_OLD | xargs $D --title="$TITLE" --list \
-	     --text="Enter new keyboard locale" \
-	     --width=400 \
-	     --height=300 \
-	     --radiolist \
-	     --hide-header \
-	     --print-column=2 \
-	     --column="Checkbox" \
-	     --column="Keycode" \
-	     `
+  take_zone()
+  {
+  #take_continents($OLD $CONTINENT)
+  local CURRENT=`echo $1 | cut -d/ -f2`
+  local CONTINENT=$2
 
-(( $? )) && exit 1
+  for CONT in `ls $ZONEINFO$CONTINENT`
+  do
+    if [[ $CONT =~ $CURRENT ]]
+    then
+      echo TRUE $CONT
+    else
+      echo FALSE $CONT
+    fi
+  done
+  }
 
-take_zone(){
-#take_continents($OLD $CONTINENT)
-local CURRENT=`echo $1 | cut -d/ -f2`
-local CONTINENT=$2
+  ZONE=`take_zone $UDOO_OLD $CONTINENT | xargs $D --title="$TITLE" --list \
+	      --text="Enter new keyboard locale" \
+	      --width=400 \
+	      --height=300 \
+	      --radiolist \
+	      --hide-header \
+	      --print-column=2 \
+	      --column="Checkbox" \
+	      --column="Keycode" \
+	      `
+  (( $? )) && exit 1
 
-for CONT in `ls $ZONEINFO$CONTINENT`
-do
-  if [[ $CONT =~ $CURRENT ]]
-  then
-    echo TRUE $CONT
-  else
-    echo FALSE $CONT
-  fi
-done
-}
+  UDOO_NEW=`echo $CONTINENT/$ZONE | tr -d " \t\n\r" `
 
-ZONE=`take_zone $UDOO_OLD $CONTINENT | xargs $D --title="$TITLE" --list \
-	     --text="Enter new keyboard locale" \
-	     --width=400 \
-	     --height=300 \
-	     --radiolist \
-	     --hide-header \
-	     --print-column=2 \
-	     --column="Checkbox" \
-	     --column="Keycode" \
-	     `
-(( $? )) && exit 1
+  unset take_zone
+  unset take_continents
+  
+  [[ -z $UDOO_NEW ]] && error "LOCALE cannot be empty"
 
-UDOO_NEW=`echo $CONTINENT/$ZONE | tr -d " \t\n\r" `
-
-[[ -z $UDOO_NEW ]] && error "LOCALE cannot be empty"
-
-ch_timezone $UDOO_NEW || error 
-
-UDOO_NEW=`readlink $ZONEFILE | cut -d/ -f5-`
-
-ok "Timezone has changed! (current: $UDOO_NEW)"
-
+  ch_timezone $UDOO_NEW
 }
 
 expand_fs()
@@ -375,291 +361,269 @@ EOF
 
 zboot_default()
 {
-local BOOTSRC
-local BOOT
+  local BOOTSRC
+  local BOOT
 
-BOOT=`$PRINTENV src 2>&1`
+  BOOT=`$PRINTENV src 2>&1`
 
-(( $? )) && error "$BOOT"
+  (( $? )) && error "$BOOT"
 
-BOOTSRC=`$D  --title="Default Boot Drive" \
+  BOOTSRC=`$D  --title="Default Boot Drive" \
+	    --width=400 \
+	    --height=300 \
+	    --list \
+	    --text="Choose a default boot drive. \
+	    U-Boot will try first to boot up the system from there. (current: $BOOT )" \
+	    --radiolist \
+	    --hide-header \
+	    --hide-column=2 \
+	    --column="Checkbox" \
+	    --column="Number" \
+	    --column="Option" \
+	    0		sata		"SATA Drive" \
+	    0		mmc		"SD Card" \
+	    0		net		"Network" \
+	  `
+
+  (( $? )) && exit 1
+  if [[ -n $BOOTSRC ]] 
+    then 
+      boot_default $BOOTSRC
+    else 
+      exit 
+  fi
+
+  }
+
+  zboot_netvars()
+  {
+  local IPADDR
+  local SERVERIP
+  local NFSROOT
+  local GET_CMD
+  local BOOT
+
+  IPADDR=`$PRINTENV ipaddr 2>&1`
+  (( $? )) && error "$IPADDR"
+
+  SERVERIP=`$PRINTENV serverip 2>&1`
+  (( $? )) && error "$SERVERIP"
+
+  NFSROOT=`$PRINTENV nfsroot 2>&1`
+  (( $? )) && error "$NFSROOT"
+
+  GET_CMD=`$PRINTENV get_cmd 2>&1`
+  (( $? )) && error "$GET_CMD"
+
+
+  FORM=`$D --forms --title="Set the environment values for netboot" \
+	  --text="Set the environment values for netboot" \
+	  --add-entry="UDOO IP config (current: $IPADDR) [ip|dhcp]" \
+	  --add-entry="NTP Server IP (current: $SERVERIP)" \
+	  --add-entry="NTP File System Location (current: $NFSROOT)" 
+	`
+  (( $? )) && exit 1
+  
+  IPADDR=`echo $FORM | cut -d \| -f 1`
+  [[ -z $IPADDR ]] && error "IPADDR cannot be empty"
+
+  SERVERIP=`echo $FORM | cut -d \| -f 2`
+  [[ -z $SERVERIP ]] && error "SERVERIP cannot be empty"
+
+  NFSROOT=`echo $FORM | cut -d \| -f 3`
+  [[ -z $NFSROOT ]] && error "NFSROOT cannot be empty"
+
+  
+  GET_CMD=`$D --title="$TITLE" \
+	  --text="uImage Retrival Method (current: $GET_CMD)" \
 	  --width=400 \
 	  --height=300 \
 	  --list \
-	  --text="Choose a default boot drive. \
-	  U-Boot will try first to boot up the system from there. (current: $BOOT )" \
 	  --radiolist \
 	  --hide-header \
-	  --hide-column=2 \
+	  --print-column="ALL" \
 	  --column="Checkbox" \
-	  --column="Number" \
-	  --column="Option" \
-	  0		sata		"SATA Drive" \
-	  0		mmc		"SD Card" \
-	  0		net		"Network" \
-	`
-(( $? )) && exit 1
-if [[ -n $BOOTSRC ]] 
-  then 
-    boot_default $BOOTSRC || error
-  else 
-    exit 
-fi
+	  --column="Method" \
+	  0 "dhcp" \
+	  0 "tftp" \
+	  0 "ntp"  \
+	  `
+  (( $? )) && exit 1
 
-BOOT=`$PRINTENV src 2>&1`
+  [[ -z $GET_CMD ]] && error "You have to specify a retrival method"
 
-ok "The default boot device is successfully changed (current: $BOOT)"
-}
-
-zboot_netvars()
-{
-local IPADDR
-local SERVERIP
-local NFSROOT
-local GET_CMD
-local BOOT
-
-IPADDR=`$PRINTENV ipaddr 2>&1`
-
-(( $? )) && error "$IPADDR"
-
-SERVERIP=`$PRINTENV serverip 2>&1`
-
-(( $? )) && error "$SERVERIP"
-
-NFSROOT=`$PRINTENV nfsroot 2>&1`
-
-(( $? )) && error "$NFSROOT"
-
-GET_CMD=`$PRINTENV get_cmd 2>&1`
-
-(( $? )) && error "$GET_CMD"
-
-
-FORM=`$D --forms --title="Set the environment values for netboot" \
-	--text="Set the environment values for netboot" \
-	--add-entry="UDOO IP config (current: $IPADDR) [ip|dhcp]" \
-	--add-entry="NTP Server IP (current: $SERVERIP)" \
-	--add-entry="NTP File System Location (current: $NFSROOT)" 
-`
-
-(( $? )) && exit 1
-IPADDR=`echo $FORM | cut -d \| -f 1`
-
-[[ -z $IPADDR ]] && error "IPADDR cannot be empty"
-
-SERVERIP=`echo $FORM | cut -d \| -f 2`
-
-[[ -z $SERVERIP ]] && error "SERVERIP cannot be empty"
-
-NFSROOT=`echo $FORM | cut -d \| -f 3`
-
-[[ -z $NFSROOT ]] && error "NFSROOT cannot be empty"
-
-GET_CMD=`$D --title="$TITLE" \
-	--text="uImage Retrival Method (current: $GET_CMD)" \
-	--width=400 \
-	--height=300 \
-	--list \
-	--radiolist \
-	--hide-header \
-	--print-column="ALL" \
-	--column="Checkbox" \
-	--column="Method" \
-	0 "dhcp" \
-	0 "tftp" \
-	0 "ntp"  \
-	`
-(( $? )) && exit 1
-
-[[ -z $GET_CMD ]] && error "You have to specify a retrival method"
-
-boot_netvars $IPADDR $SERVERIP $NFSROOT $GET_CMD || error 
-  
-ok "The netboot environment variables has been changed successfully"
+  boot_netvars $IPADDR $SERVERIP $NFSROOT $GET_CMD 
 
 }
 
 zboot_mmcvars()
 {
 
-local MMCPART
-local MMCROOT
-local FORM
+  local MMCPART
+  local MMCROOT
+  local FORM
 
-MMCPART=`$PRINTENV mmcpart 2>&1`
+  MMCPART=`$PRINTENV mmcpart 2>&1`
 
-(( $? )) && error "$MMCPART"
+  (( $? )) && error "$MMCPART"
 
-MMCROOT=`$PRINTENV mmcroot 2>&1`
+  MMCROOT=`$PRINTENV mmcroot 2>&1`
 
-(( $? )) && error "$MMCROOT"
+  (( $? )) && error "$MMCROOT"
 
-FORM=`$D --forms --title="Set the environment values for mmcboot" \
-	--text="Set the environment values for mmcboot" \
-	--add-entry="Partition Number (current: $MMCPART) [1-4]" \
-	--add-entry="MMC Device Filename (current: $MMCROOT)" \
-	`
-(( $? )) && exit 1
-MMCPART=`echo $FORM | cut -d \| -f 1`
+  FORM=`$D --forms --title="Set the environment values for mmcboot" \
+	  --text="Set the environment values for mmcboot" \
+	  --add-entry="Partition Number (current: $MMCPART) [1-4]" \
+	  --add-entry="MMC Device Filename (current: $MMCROOT)" \
+	  `
+  (( $? )) && exit 1
+  MMCPART=`echo $FORM | cut -d \| -f 1`
 
-[[ -z $MMCPART ]] && error "MMCPART cannot be empty"
+  [[ -z $MMCPART ]] && error "MMCPART cannot be empty"
 
-MMCROOT=`echo $FORM | cut -d \| -f 2`
+  MMCROOT=`echo $FORM | cut -d \| -f 2`
 
-[[ -z $MMCROOT ]] && error "MMCROOT cannot be empty"
+  [[ -z $MMCROOT ]] && error "MMCROOT cannot be empty"
 
-boot_mmcvars $MMCPART $MMCROOT || error
- 
-ok "The mmcboot environment variables has been changed successfully"
+  boot_mmcvars $MMCPART $MMCROOT
   
 }
 
 zboot_satavars()
 {
+  local SATAPART
+  local SATAROOT
+  local FORM
 
-local SATAPART
-local SATAROOT
-local FORM
+  SATAPART=`$PRINTENV satapart 2>&1`
 
-SATAPART=`$PRINTENV satapart 2>&1`
+  (( $? )) && error "$SATAPART"
 
-(( $? )) && error "$SATAPART"
+  SATAROOT=`$PRINTENV sataroot 2>&1`
 
-SATAROOT=`$PRINTENV sataroot 2>&1`
-
-(( $? )) && error "$SATAROOT"
-
-
-FORM=`$D --forms --title="Set the environment values for sataboot" \
-	--text="Set the environment values for sataboot" \
-	--add-entry="Partition Number (current: $SATAPART) [1-4]" \
-	--add-entry="SATA Device Filename (current: $SATAROOT)" \
-	`
-(( $? )) && exit 1
-SATAPART=`echo $FORM | cut -d \| -f 1`
-
-[[ -z $SATAPART ]] && error "SATAPART cannot be empty"
-
-SATAROOT=`echo $FORM | cut -d \| -f 2`
-
-[[ -z $SATAROOT ]] && error "SATAROOT cannot be empty"
+  (( $? )) && error "$SATAROOT"
 
 
-boot_satavars $SATAPART $SATAROOT || error
- 
-ok "The sataboot environment variables has been changed successfully"
+  FORM=`$D --forms --title="Set the environment values for sataboot" \
+	  --text="Set the environment values for sataboot" \
+	  --add-entry="Partition Number (current: $SATAPART) [1-4]" \
+	  --add-entry="SATA Device Filename (current: $SATAROOT)" \
+	  `
+  (( $? )) && exit 1
+  SATAPART=`echo $FORM | cut -d \| -f 1`
+
+  [[ -z $SATAPART ]] && error "SATAPART cannot be empty"
+
+  SATAROOT=`echo $FORM | cut -d \| -f 2`
+
+  [[ -z $SATAROOT ]] && error "SATAROOT cannot be empty"
+
+
+  boot_satavars $SATAPART $SATAROOT
   
-}
+  }
 
 zboot_script()
 {
-local BOOT
-local SCRIPT
-local FORM
+  local BOOT
+  local SCRIPT
+  local FORM
 
-BOOT=`$PRINTENV src 2>&1`
+  BOOT=`$PRINTENV src 2>&1`
 
-(( $? )) && error "$BOOT"
+  (( $? )) && error "$BOOT"
 
-SCRIPT=`$PRINTENV script 2>&1`
+  SCRIPT=`$PRINTENV script 2>&1`
 
-(( $? )) && error "$SCRIPT"
+  (( $? )) && error "$SCRIPT"
 
 
-FORM=`$D --forms --title="Set the boot script" \
-	--text="Set the boot script variables that will be executed on the root of the default boot device (current: $BOOT)" \
-	--add-entry="Script Filename (current: $SCRIPT)" \
-	`
-(( $? )) && exit 1
-SCRIPT=`echo $FORM`
+  FORM=`$D --forms --title="Set the boot script" \
+	  --text="Set the boot script variables that will be executed on the root of the default boot device (current: $BOOT)" \
+	  --add-entry="Script Filename (current: $SCRIPT)" \
+	  `
+  (( $? )) && exit 1
+  SCRIPT=`echo $FORM`
 
-[[ -z $SCRIPT ]] && error "SCRIPT cannot be empty"
+  [[ -z $SCRIPT ]] && error "SCRIPT cannot be empty"
 
-boot_script $SCRIPT || error
- 
-  ok "The boot script variable has been changed successfully (now: $SCRIPT)"
-
+  boot_script $SCRIPT
 }
 
 zboot_video()
 {
-local VIDEO_DEV
-local VIDEO_RES
-local VIDEO
+  local VIDEO_DEV
+  local VIDEO_RES
+  local VIDEO
 
-VIDEO=`$PRINTENV video 2>&1`
+  VIDEO=`$PRINTENV video 2>&1`
 
-(( $? )) && error "$VIDEO"
+  (( $? )) && error "$VIDEO"
 
-VIDEO_DEV=`echo $VIDEO | cut -d "=" -f 3- | cut -d "," -f 1`  # e.g. video=mxcfb0:dev=hdmi,1920x1080M@60,bpp=32
-VIDEO_RES=`echo $VIDEO | cut -d "=" -f 3- | cut -d "," -f 2-`  # e.g. video=mxcfb0:dev=hdmi,1920x1080M@60,bpp=32
+  VIDEO_DEV=`echo $VIDEO | cut -d "=" -f 3- | cut -d "," -f 1`  # e.g. video=mxcfb0:dev=hdmi,1920x1080M@60,bpp=32
+  VIDEO_RES=`echo $VIDEO | cut -d "=" -f 3- | cut -d "," -f 2-`  # e.g. video=mxcfb0:dev=hdmi,1920x1080M@60,bpp=32
 
-#zenity segfaults, turn back to --list
+  #zenity segfaults, turn back to --list
 
-# FORM=`$D --forms --title="Set the video output environment variables" \
-# 	--text="Set the video output environment variables" \
-# 	--add-list="Default video device (current: $VIDEO_DEV)" \
-# 	--list-values="hdmi|lvds" \
-# 	--add-list="Default resolution for video device" \
-# 	--list-values="1024x768@60,bpp=32|1366x768@60,bpp=32|1920x1080M@60,bpp=32" \
-# 	`
-#VIDEO_DEV=`echo $FORM | cut -d "|" -f 1` 
-#VIDEO_RES=`echo $FORM | cut -d "|" -f 2` 
+  # FORM=`$D --forms --title="Set the video output environment variables" \
+  # 	--text="Set the video output environment variables" \
+  # 	--add-list="Default video device (current: $VIDEO_DEV)" \
+  # 	--list-values="hdmi|lvds" \
+  # 	--add-list="Default resolution for video device" \
+  # 	--list-values="1024x768@60,bpp=32|1366x768@60,bpp=32|1920x1080M@60,bpp=32" \
+  # 	`
+  #VIDEO_DEV=`echo $FORM | cut -d "|" -f 1` 
+  #VIDEO_RES=`echo $FORM | cut -d "|" -f 2` 
 
-VIDEO_DEV=`$D --list --title="Set the video output environment variables" \
-		  --radiolist \
-		  --hide-header \
-		  --hide-column=2 \
-		  --column="Checkbox" \
-		  --column="Option" \
-		  --column="Video" \
-		  --text="Default video device (current: $VIDEO_DEV)" \
-		  0	"hdmi" 	 "HDMI" \
-		  0	"ldb1" 	 "LVDS 7\"" \
-		  0	"ldb2" 	 "LVDS 15\"" \
-`
+  VIDEO_DEV=`$D --list --title="Set the video output environment variables" \
+		    --radiolist \
+		    --hide-header \
+		    --hide-column=2 \
+		    --column="Checkbox" \
+		    --column="Option" \
+		    --column="Video" \
+		    --text="Default video device (current: $VIDEO_DEV)" \
+		    0	"hdmi" 	 "HDMI" \
+		    0	"ldb1" 	 "LVDS 7\"" \
+		    0	"ldb2" 	 "LVDS 15\"" \
+  `
 
-(( $? )) && exit 1
+  (( $? )) && exit 1
 
-[[ -z $VIDEO_DEV ]] && error "VIDEO_DEV cannot be empty"
+  [[ -z $VIDEO_DEV ]] && error "VIDEO_DEV cannot be empty"
 
-case $VIDEO_DEV in 
-  hdmi) VIDEO_RES=`$D --list --title="Set the video output environment variables" \
-	    --radiolist \
-	    --hide-header \
-	    --column="Checkbox" \
-	    --column="Option" \
-	    --text="Default resolution for video device" \
-	  0 	"1024x768@60,bpp=32" \
-	  0 	"1366x768@60,bpp=32" \
-	  0 	"1920x1080M@60,bpp=32" \
-	`
-	(( $? )) && exit 1
-	;;
+  case $VIDEO_DEV in 
+    hdmi) VIDEO_RES=`$D --list --title="Set the video output environment variables" \
+	      --radiolist \
+	      --hide-header \
+	      --column="Checkbox" \
+	      --column="Option" \
+	      --text="Default resolution for video device" \
+	    0 	"1024x768@60,bpp=32" \
+	    0 	"1366x768@60,bpp=32" \
+	    0 	"1920x1080M@60,bpp=32" \
+	  `
+	  (( $? )) && exit 1
+	  ;;
+    
+    ldb1) VIDEO_RES="LDB-WVGA,if=RGB666,bpp=32" ;;
+    ldb2) VIDEO_RES="1366x768M@60,if=RGB24,bpp=32" ;;
+
+  esac 
   
-  ldb1) VIDEO_RES="LDB-WVGA,if=RGB666,bpp=32" ;;
-  ldb2) VIDEO_RES="1366x768M@60,if=RGB24,bpp=32" ;;
+  [[ -z $VIDEO_RES ]] && error "VIDEO_RES cannot be empty"
 
-esac 
- 
-[[ -z $VIDEO_RES ]] && error "VIDEO_RES cannot be empty"
-
-boot_video $VIDEO_DEV $VIDEO_RES || error
-  
-ok "The boot video variable has been changed successfully (now: $VIDEO)"
+  boot_video $VIDEO_DEV $VIDEO_RES 
 }
 
 zboot_reset(){
 #boot_reset()
 
   $D --question \
-      --text="The u-boot environment stored in your SD is going to be erased and overwritten by this configurator's default values. 
-You are advised to backup your actual environment before proceeding." || exit 1
+	--text="The u-boot environment stored in your SD is going to be erased and overwritten by this configurator's default values. 
+ You are advised to backup your actual environment before proceeding." || exit 1
 
-boot_reset || error
-
-ok "The u-boot environment has been resetted successfully"
+  boot_reset
 
 }
 

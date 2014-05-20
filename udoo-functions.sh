@@ -65,6 +65,7 @@ ch_passwd() {
 
   echo $USER:$PASSWD | chpasswd || error "chpasswd failed"
 
+  ok
 }
 
 ch_host() {
@@ -86,6 +87,9 @@ ch_host() {
 
   [[ "$(cat /etc/hostname)" == 	"$UDOO_NEW" ]] && \
   [[ "$(cat /etc/hostname)" =~ 	"$UDOO_NEW" ]] || error
+  
+  ok "Success! (New hostname: $UDOO_NEW)
+Please reboot!"
 
 }
 
@@ -115,7 +119,8 @@ mem_split() {
   $SETENV memory "fbmem=${FBMEM}M gpu_reserved=${GPUMEM}M" || error
 
   sync
-
+  
+  ok "Success! (FBMEM=${FBMEM}M GPU_RESERVED=${GPUMEM}M)"
 }
 
 print_env() {
@@ -140,6 +145,56 @@ ntpdate_rtc() {
   HWC=`hwclock -w 2>&1`
   (( $? )) && error $HWC
   
+  ok "Success! (Time now is `date`)"
+}
+
+ch_keyboard(){
+#ch_locale($LOCALE)
+  local LOCALE=$1
+
+  [[ -z $LOCALE ]] && error "LOCALE cannot be empty"
+
+  #Search in /usr/share/X11/xkb/rules/xorg.lst
+  grep -qc " $LOCALE " $KBD_RULES || error "LOCALE not valid (not in $KBD_RULES)"
+
+  #Search for /etc/default/keyboard
+  [[ -f $KBD_DEFAULT ]] || error "$KBD_DEFAULT not found"
+
+  if grep -qc XKBLAYOUT $KBD_DEFAULT
+    then
+      sed -e "s/XKBLAYOUT=.*/XKBLAYOUT=\"$LOCALE\"/" -i $KBD_DEFAULT
+    else
+      echo XKBLAYOUT=\"$LOCALE\" >> $KBD_DEFAULT
+  fi
+
+  (( $? )) && error "Cannot set keyboard layout as default setting"
+
+  setxkbmap $LOCALE
+
+  (( $? )) && error "Cannot set keyboard layout directly"
+
+  ok "Locale has changed successfully!"
+
+}
+
+ch_timezone(){
+#ch_timezone($ZONE)
+  local ZONE
+  ZONE=$1
+
+  [[ -z $ZONE ]] && error "ZONE cannot be empty"
+
+  # /usr/share/zoneinfo/ + ZONE
+  [[ -f $ZONEINFO$ZONE ]] || error "$ZONEINFO$ZONE does not exist"
+
+  [[ -f $ZONEFILE ]] && rm $ZONEFILE
+
+  # /etc/localtime -> /usr/share/zoneinfo/ + ZONE
+  ln -sf $ZONEINFO$ZONE $ZONEFILE
+
+  (( $? )) && error "Cannot set current timezone"
+
+  ok "Timezone has changed successfully!"
 }
 
 expand_fs() {
@@ -216,38 +271,37 @@ EOF
 }
 
 boot_default() {
-#boot_default($BOOTSRC)
-local BOOTSRC=$1
-local BOOT
+  #boot_default($BOOTSRC)
+  local BOOTSRC=$1
+  local BOOT
 
-if [[ -n $BOOTSRC ]] 
-  then 
-    BOOT=`$SETENV src $BOOTSRC 2>&1`
-    (( $? )) && error "$BOOT"
-  else 
-    error "BOOTSRC cannot be empty"
-fi
-
+  if [[ -n $BOOTSRC ]] 
+    then 
+      BOOT=`$SETENV src $BOOTSRC 2>&1`
+      (( $? )) && error "$BOOT"
+    else 
+      error "BOOTSRC cannot be empty"
+  fi
+  
+  ok "The default boot device is successfully changed!"
 }
 
 boot_netvars() {
-#boot_netvars($IPADDR, $SERVERIP, $NFSROOT, $GET_CMD)
+  #boot_netvars($IPADDR, $SERVERIP, $NFSROOT, $GET_CMD)
 
-local IPADDR=$1
-local SERVERIP=$2
-local NFSROOT=$3
-local GET_CMD=$4
-local BOOT
+  local IPADDR=$1
+  local SERVERIP=$2
+  local NFSROOT=$3
+  local GET_CMD=$4
+  local BOOT
 
+  [[ -z $IPADDR ]] && error "IPADDR cannot be empty"
 
-[[ -z $IPADDR ]] && error "IPADDR cannot be empty"
+  [[ -z $SERVERIP ]] && error "SERVERIP cannot be empty"
 
-[[ -z $SERVERIP ]] && error "SERVERIP cannot be empty"
+  [[ -z $NFSROOT ]] && error "NFSROOT cannot be empty"
 
-[[ -z $NFSROOT ]] && error "NFSROOT cannot be empty"
-
-[[ -z $GET_CMD ]] && error "You have to specify a retrival method"
-
+  [[ -z $GET_CMD ]] && error "You have to specify a retrival method"
 
   BOOT=`$SETENV ipaddr $IPADDR 2>&1`
   (( $? )) && error "$BOOT"
@@ -261,6 +315,8 @@ local BOOT
   BOOT=`$SETENV get_cmd $GET_CMD 2>&1`
   (( $? )) && error "$BOOT"
   
+  ok "The netboot environment variables has been changed successfully"
+
 }
 
 boot_mmcvars() {
@@ -279,137 +335,86 @@ local BOOT
 
   BOOT=`$SETENV mmcroot $MMCROOT 2>&1`
   (( $? )) && error "$BOOT"
- 
+  
+  ok "The mmcboot environment variables has been changed successfully"
+
 }
 
 boot_satavars() {
 #boot_mmcvars($SATAPART, $SATAROOT)
 
-local SATAPART=$1
-local SATAROOT=$2
-local BOOT
+  local SATAPART=$1
+  local SATAROOT=$2
+  local BOOT
 
-[[ -z $SATAPART ]] && error "SATAPART cannot be empty"
+  [[ -z $SATAPART ]] && error "SATAPART cannot be empty"
 
-[[ -z $SATAROOT ]] && error "SATAROOT cannot be empty"
+  [[ -z $SATAROOT ]] && error "SATAROOT cannot be empty"
 
   BOOT=`$SETENV satapart $SATAPART 2>&1`
   (( $? )) && error "$BOOT"
 
   BOOT=`$SETENV sataroot $SATAROOT 2>&1`
   (( $? )) && error "$BOOT"
- 
+  
+  ok "The sataboot environment variables has been changed successfully"
+
 }
 
 boot_script() {
 #boot_script($SCRIPT)
-local BOOT
-local SCRIPT=$1
+  local BOOT
+  local SCRIPT=$1
 
-[[ -z $SCRIPT ]] && error "SCRIPT cannot be empty"
+  [[ -z $SCRIPT ]] && error "SCRIPT cannot be empty"
 
-BOOT=`$SETENV script $SCRIPT 2>&1`
-  (( $? )) && error "$BOOT"
+  BOOT=`$SETENV script $SCRIPT 2>&1`
+    (( $? )) && error "$BOOT"
 
-sync  
-  
-SCRIPT=`$PRINTENV script 2>&1`
+  sync  
 
-(( $? )) && error "$SCRIPT"
+  ok "The boot script variable has been changed successfully"
 
 }
 
 boot_video() {
 #boot_video($VIDEO_DEV,$VIDEO_RES)
-local VIDEO_DEV
-local VIDEO_RES
-local VIDEO
+  local VIDEO_DEV
+  local VIDEO_RES
+  local VIDEO
 
-[[ -z $VIDEO_DEV ]] && error "VIDEO_DEV cannot be empty"
+  [[ -z $VIDEO_DEV ]] && error "VIDEO_DEV cannot be empty"
 
-[[ -z $VIDEO_RES ]] && error "VIDEO_RES cannot be empty"
+  [[ -z $VIDEO_RES ]] && error "VIDEO_RES cannot be empty"
 
-VIDEO=`$SETENV video "video=mxcfb0:dev=$VIDEO_DEV,$VIDEO_RES" 2>&1`
-(( $? )) && error "$VIDEO"
+  VIDEO=`$SETENV video "video=mxcfb0:dev=$VIDEO_DEV,$VIDEO_RES" 2>&1`
+  (( $? )) && error "$VIDEO"
 
-sync
+  sync
 
-VIDEO=`$PRINTENV video 2>&1`
-(( $? )) && error "$VIDEO"
-  
+  ok "The boot video variable has been changed successfully"
 }
 
 boot_reset(){
 #boot_reset()
 
-local RESET 
+  local RESET 
 
-#Storing variables names
-RESET=`$PRINTENV 2>/dev/null | cut -d= -f1`
-(( $? )) && error $RESET
+  #Storing variables names
+  RESET=`$PRINTENV 2>/dev/null | cut -d= -f1`
+  (( $? )) && error $RESET
 
-#Wipe
-RESET=`echo $RESET | $SETENV -s - 2>&1`
-(( $? )) && error $RESET
+  #Wipe
+  RESET=`echo $RESET | $SETENV -s - 2>&1`
+  (( $? )) && error $RESET
+  sync
 
-sync
+  #Restore
+  RESET=`$SETENV -s $SRCFILE 2>&1`
+  (( $? )) && error $RESET
+  sync
 
-#Restore
-RESET=`$SETENV -s $SRCFILE 2>&1`
-(( $? )) && error $RESET
-
-sync
-
-
-}
-
-ch_keyboard(){
-#ch_locale($LOCALE)
-local LOCALE=$1
-
-[[ -z $LOCALE ]] && error "LOCALE cannot be empty"
-
-#Search in /usr/share/X11/xkb/rules/xorg.lst
-grep -qc " $LOCALE " $KBD_RULES || error "LOCALE not valid (not in $KBD_RULES)"
-
-#Search for /etc/default/keyboard
-[[ -f $KBD_DEFAULT ]] || error "$KBD_DEFAULT not found"
-
-if grep -qc XKBLAYOUT $KBD_DEFAULT
-  then
-    sed -e "s/XKBLAYOUT=.*/XKBLAYOUT=\"$LOCALE\"/" -i $KBD_DEFAULT
-  else
-    echo XKBLAYOUT=\"$LOCALE\" >> $KBD_DEFAULT
-fi
-
-(( $? )) && error "Cannot set keyboard layout as default setting"
-
-setxkbmap $LOCALE
-
-(( $? )) && error "Cannot set keyboard layout directly"
-
-return 0
-
-}
-
-ch_timezone(){
-#ch_timezone($ZONE)
-local ZONE
-ZONE=$1
-
-[[ -z $ZONE ]] && error "ZONE cannot be empty"
-
-# /usr/share/zoneinfo/ + ZONE
-[[ -f $ZONEINFO$ZONE ]] || error "$ZONEINFO$ZONE does not exist"
-
-[[ -f $ZONEFILE ]] && rm $ZONEFILE
-
-# /etc/localtime -> /usr/share/zoneinfo/ + ZONE
-ln -sf $ZONEINFO$ZONE $ZONEFILE
-
-(( $? )) && error "Cannot set current timezone"
-
-return 0 
+  ok "The u-boot environment has been resetted successfully"
 
 }
 
