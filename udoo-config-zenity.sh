@@ -21,15 +21,30 @@ source $DIR/udoo-functions.sh
 
 error() {
   TEXT=$1
-  [[ -z $TEXT ]] && TEXT="An error has occoured!"
+  [[ -z $TEXT ]] && TEXT="A fatal error has occoured!"
   $D --title="$TITLE" --error --text="$TEXT"
   exit 1
 }
 
+alert() {
+  TEXT=$1
+  [[ -z $TEXT ]] && TEXT="An error has occoured! Warning!"
+  $D --title="$TITLE" --warning --text="$TEXT"
+  return 0
+}
+
+question() {
+  TEXT=$1
+  [[ -z $TEXT ]] && TEXT="An error has occoured!"
+  $D --title="$TITLE" --question --text="$TEXT"
+  return $?
+}
+
 ok() {
   TEXT=$1
-  [[ -z $TEXT ]] && TEXT="Success!"
-  $D --title="$TITLE" --info --text="$TEXT"
+  [[ -z $TEXT ]] && 	TEXT="Success!"
+  (( $QUIET )) || 	$D --title="$TITLE" --info --text="$TEXT"
+  return 0
 }
 
 zch_passwd()
@@ -228,7 +243,7 @@ zch_timezone(){
   }
 
   CONTINENT=`take_continents $UDOO_OLD | xargs $D --title="$TITLE" --list \
-	      --text="Enter new keyboard locale" \
+	      --text="Enter your geographic area" \
 	      --width=400 \
 	      --height=300 \
 	      --radiolist \
@@ -250,15 +265,15 @@ zch_timezone(){
   do
     if [[ $CONT =~ $CURRENT ]]
     then
-      echo TRUE $CONT
+      echo TRUE \"$CONT\"
     else
-      echo FALSE $CONT
+      echo FALSE \"$CONT\"
     fi
   done
   }
 
-  ZONE=`take_zone $UDOO_OLD $CONTINENT | xargs $D --title="$TITLE" --list \
-	      --text="Enter new keyboard locale" \
+  ZONE=`take_zone $UDOO_OLD $CONTINENT | sed -e 's/_/ /' | xargs $D --title="$TITLE" --list \
+	      --text="Enter your local zone" \
 	      --width=400 \
 	      --height=300 \
 	      --radiolist \
@@ -269,7 +284,7 @@ zch_timezone(){
 	      `
   (( $? )) && exit 1
 
-  UDOO_NEW=`echo $CONTINENT/$ZONE | tr -d " \t\n\r" `
+  UDOO_NEW=`echo $CONTINENT/$ZONE | tr -d " \t\n\r" | sed -e 's/ /_/'`
 
   unset take_zone
   unset take_continents
@@ -359,44 +374,167 @@ EOF
   ok "Root partition has been resized in the partition table ($PARTSIZE).\nThe filesystem will be enlarged upon the next reboot."
 }
 
-zboot_default()
+zboot_mmcvars()
 {
-  local BOOTSRC
-  local BOOT
+  local MMCPART
+  local MMCROOT
+  local -a DESC=('Partition 1 (default)' \
+	      'Partition 2' \
+	      'Partition 3' \
+	      'Partition 4') 
+  local parts=0
+  
+  MMCPART=`$PRINTENV mmcpart 2>&1`
+  (( $? )) && error "$MMCPART"
+  MMCPART=`echo -n $MMCPART | tail -c1`
+  
+  #part discovery in /dev/mmcblkp*
+  [[ -b $MMC ]] || error "$MMC is not a valid MMC device file. Please check your configuration"
+  
+  local dev
+  for dev in `ls ${MMC}?* 2>/dev/null`
+  do
+    let parts++
+    [[ $parts -eq 4 ]] && break
+  done
+  unset dev
+  
+  [[ $parts == 0 ]] && error "No partition found on $MMC, check configuration"
+  
+  if [[ $parts == 1 ]]
+  then
+    #set automatically, don't ask
+    MMCPART=1 
+  else
+    current_mmc()
+    {
+    #current_mmc($CURRENT)
+      local CURRENT=$1
+      local part
+      local i=0
+      
+      #from 0 to lenght-1
+      for part in `seq $parts`
+      do
+	if [[ $CURRENT == $part ]]
+	then
+	  echo TRUE $part \"${DESC[$i]}\"
+	else
+	  echo FALSE $part \"${DESC[$i]}\"
+	fi
+      let i++
+      done
+    }
+    
+    MMCPART=`current_mmc $MMCPART | xargs $D  \
+	      --title="Choose your MMC boot partition" \
+	      --width=400 \
+	      --height=300 \
+	      --list \
+	      --text="Choose your MMC boot partition" \
+	      --radiolist \
+	      --hide-header \
+	      --hide-column=2 \
+	      --column="Checkbox" \
+	      --column="Number" \
+	      --column="Option"`
 
-  BOOT=`$PRINTENV src 2>&1`
+    (( $? )) && exit 1
 
-  (( $? )) && error "$BOOT"
+    unset current_mmc
+    
+    [[ -z $MMCPART ]] && error "MMCPART cannot be empty"
+  fi
+  
+  boot_mmcvars $MMCPART
+  
+}
 
-  BOOTSRC=`$D  --title="Default Boot Drive" \
-	    --width=400 \
-	    --height=300 \
-	    --list \
-	    --text="Choose a default boot drive. \
-	    U-Boot will try first to boot up the system from there. (current: $BOOT )" \
-	    --radiolist \
-	    --hide-header \
-	    --hide-column=2 \
-	    --column="Checkbox" \
-	    --column="Number" \
-	    --column="Option" \
-	    0		sata		"SATA Drive" \
-	    0		mmc		"SD Card" \
-	    0		net		"Network" \
-	  `
+zboot_satavars()
+{
+  local SATAPART
+  local SATAROOT
+  local parts=0
+  local -a DESC=('Partition 1 (default)' \
+	      'Partition 2' \
+	      'Partition 3' \
+	      'Partition 4') 
 
+  SATAPART=`$PRINTENV satapart 2>&1`
+  (( $? )) && error "$SATAPART"
+  SATAPART=`echo -n $SATAPART | tail -c1`
+  
+  if [[ -b $SATA ]]
+  then 
+    #part discovery in /dev/sda* if exist
+    local dev
+    
+    for dev in `ls ${SATA}? 2>/dev/null`
+    do
+      let parts++
+      [[ $parts -eq 4 ]] && break
+    done
+    
+    unset dev
+  fi
+  
+  #or choose between 4 possible partition
+  [[ $parts == 0 ]] && parts=4 && \
+    question "No partition found on $SATA, check configuration.
+Be careful on next step. Do you want to continue anyway?"
   (( $? )) && exit 1
-  if [[ -n $BOOTSRC ]] 
-    then 
-      boot_default $BOOTSRC
-    else 
-      exit 
+
+  if [[ $parts == 1 ]]
+  then
+    #set automatically, don't ask
+    SATAPART=1 
+  else
+    current_sata()
+    {
+    #current_sata($CURRENT)
+      local CURRENT=$1
+      local part
+      local i=0
+      
+      #from 0 to lenght-1
+      for part in `seq $parts`
+      do
+	if [[ $CURRENT == $part ]]
+	then
+	  echo TRUE $part \"${DESC[$i]}\"
+	else
+	  echo FALSE $part \"${DESC[$i]}\"
+	fi
+      let i++
+      done
+    }
+    
+    SATAPART=`current_sata $SATAPART | xargs $D  \
+	      --title="Choose your SATA boot partition" \
+	      --width=400 \
+	      --height=300 \
+	      --list \
+	      --text="Choose your SATA boot partition" \
+	      --radiolist \
+	      --hide-header \
+	      --hide-column=2 \
+	      --column="Checkbox" \
+	      --column="Number" \
+	      --column="Option"`
+
+    (( $? )) && exit 1
+
+    unset current_sata
   fi
 
-  }
+  [[ -z $SATAPART ]] && error "SATAPART cannot be empty"
 
-  zboot_netvars()
-  {
+  boot_satavars $SATAPART 
+  
+  }
+  
+zboot_netvars()
+{
   local IPADDR
   local SERVERIP
   local NFSROOT
@@ -405,50 +543,126 @@ zboot_default()
 
   IPADDR=`$PRINTENV ipaddr 2>&1`
   (( $? )) && error "$IPADDR"
+  IPADDR=`echo $IPADDR | cut -d= -f2`
 
   SERVERIP=`$PRINTENV serverip 2>&1`
   (( $? )) && error "$SERVERIP"
+  SERVERIP=`echo $SERVERIP | cut -d= -f2`
 
-  NFSROOT=`$PRINTENV nfsroot 2>&1`
+  NFSROOT=`$PRINTENV nfsroot 2>&1` 
   (( $? )) && error "$NFSROOT"
+  NFSROOT=`echo $NFSROOT | cut -d= -f2`
 
   GET_CMD=`$PRINTENV get_cmd 2>&1`
   (( $? )) && error "$GET_CMD"
+  GET_CMD=`echo $GET_CMD | cut -d= -f2`
 
 
-  FORM=`$D --forms --title="Set the environment values for netboot" \
+  FORM=`$D --forms --title="$TITLE" \
 	  --text="Set the environment values for netboot" \
-	  --add-entry="UDOO IP config (current: $IPADDR) [ip|dhcp]" \
-	  --add-entry="NTP Server IP (current: $SERVERIP)" \
-	  --add-entry="NTP File System Location (current: $NFSROOT)" 
+	  --add-entry="UDOO IP Address (current: $IPADDR) [leave blank for DHCP]" \
+	  --add-entry="NTP Server IP Address (current: $SERVERIP)" \
+	  --add-entry="NTP File System Location (current: $NFSROOT)" \
 	`
   (( $? )) && exit 1
   
-  IPADDR=`echo $FORM | cut -d \| -f 1`
-  [[ -z $IPADDR ]] && error "IPADDR cannot be empty"
+  # Test an IP address for validity
+  function valid_ip()
+  {
+      local  ip=$1
+      local  stat=1
 
-  SERVERIP=`echo $FORM | cut -d \| -f 2`
-  [[ -z $SERVERIP ]] && error "SERVERIP cannot be empty"
-
-  NFSROOT=`echo $FORM | cut -d \| -f 3`
-  [[ -z $NFSROOT ]] && error "NFSROOT cannot be empty"
-
+      if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+	  OIFS=$IFS
+	  IFS='.'
+	  ip=($ip)
+	  IFS=$OIFS
+	  [[ ${ip[0]} -le 255 && ${ip[1]} -le 255 \
+	      && ${ip[2]} -le 255 && ${ip[3]} -le 255 ]]
+	  stat=$?
+      fi
+      return $stat
+  }
+  IPADDR_OLD=$IPADDR
+  IPADDR=`echo $FORM | cut -d \| -f 1 | tr -d " "`  
   
-  GET_CMD=`$D --title="$TITLE" \
+  #check
+  if [[ -z $IPADDR ]]
+  then
+    ALERT[0]="IP Address will be obtained via DHCP"
+    IPADDR="dhcp"
+  elif ! valid_ip $IPADDR
+  then
+    ALERT[0]="IP Address is not valid, setting default ($IPADDR_OLD)"
+    IPADDR=$IPADDR_OLD
+  fi
+  SERVERIP_OLD=$SERVERIP
+  
+  SERVERIP=`echo $FORM | cut -d \| -f 2 | tr -d " "`
+  if [[ -z  $SERVERIP ]]
+  then
+    ALERT[1]="SERVERIP cannot be empty, setting default ($SERVERIP_OLD)"
+    SERVERIP=$SERVERIP_OLD
+  elif ! valid_ip $SERVERIP
+  then
+    ALERT[1]="SERVERIP is not valid, setting default ($SERVERIP_OLD)" 
+    SERVERIP=$SERVERIP_OLD
+  fi
+  
+  NFSROOT_OLD=$NFSROOT
+  NFSROOT=`echo $FORM | cut -d \| -f 3`
+  [[ -z $NFSROOT ]] && \
+    ALERT[2]="NFSROOT cannot be empty, setting default ($NFSROOT_OLD)" && \
+    NFSROOT=$NFSROOT_OLD
+  
+  unset valid_ip
+
+  #Print alerts
+  [[ -n ${ALERT[@]} ]] && question \
+    "$(for i in `seq 0 ${#ALERT[@]}`; do echo ${ALERT[$i]} ; done )
+    
+Are you sure?"
+  (( $? )) && exit 0
+
+  local DESC=('DHCP' "TFTP" "NTP")
+  local SRC=('dhcp' 'tftp' 'ntp')
+  
+  current_getcmd()
+  {
+  #current_sata($CURRENT)
+    local CURRENT=$1
+    local get_cmd
+    local i=0
+    
+    #from 0 to lenght-1
+    for get_cmd in ${SRC[@]}
+    do
+      if [[ $CURRENT == $get_cmd ]]
+      then
+	echo TRUE $get_cmd \"${DESC[$i]}\"
+      else
+	echo FALSE $get_cmd \"${DESC[$i]}\"
+      fi
+    let i++
+    done
+  }
+
+  GET_CMD=`current_getcmd $GET_CMD | xargs $D \
+	  --title="$TITLE" \
 	  --text="uImage Retrival Method (current: $GET_CMD)" \
 	  --width=400 \
 	  --height=300 \
 	  --list \
 	  --radiolist \
 	  --hide-header \
-	  --print-column="ALL" \
+	  --print-column=2 \
+	  --hide-column=2 \
 	  --column="Checkbox" \
 	  --column="Method" \
-	  0 "dhcp" \
-	  0 "tftp" \
-	  0 "ntp"  \
-	  `
+	  --column="Description" \
+	  `  
   (( $? )) && exit 1
+  unset current_getcmd
 
   [[ -z $GET_CMD ]] && error "You have to specify a retrival method"
 
@@ -456,75 +670,74 @@ zboot_default()
 
 }
 
-zboot_mmcvars()
+zboot_default()
 {
-
-  local MMCPART
-  local MMCROOT
-  local FORM
-
-  MMCPART=`$PRINTENV mmcpart 2>&1`
-
-  (( $? )) && error "$MMCPART"
-
-  MMCROOT=`$PRINTENV mmcroot 2>&1`
-
-  (( $? )) && error "$MMCROOT"
-
-  FORM=`$D --forms --title="Set the environment values for mmcboot" \
-	  --text="Set the environment values for mmcboot" \
-	  --add-entry="Partition Number (current: $MMCPART) [1-4]" \
-	  --add-entry="MMC Device Filename (current: $MMCROOT)" \
-	  `
-  (( $? )) && exit 1
-  MMCPART=`echo $FORM | cut -d \| -f 1`
-
-  [[ -z $MMCPART ]] && error "MMCPART cannot be empty"
-
-  MMCROOT=`echo $FORM | cut -d \| -f 2`
-
-  [[ -z $MMCROOT ]] && error "MMCROOT cannot be empty"
-
-  boot_mmcvars $MMCPART $MMCROOT
+  local BOOTSRC
+  local BOOT
+  local SRC=('mmc' 'sata' 'net')
+  local DESC=('MicroSD Card' 'SATA Drive' 'Network FileSystem')
   
-}
-
-zboot_satavars()
-{
-  local SATAPART
-  local SATAROOT
-  local FORM
-
-  SATAPART=`$PRINTENV satapart 2>&1`
-
-  (( $? )) && error "$SATAPART"
-
-  SATAROOT=`$PRINTENV sataroot 2>&1`
-
-  (( $? )) && error "$SATAROOT"
-
-
-  FORM=`$D --forms --title="Set the environment values for sataboot" \
-	  --text="Set the environment values for sataboot" \
-	  --add-entry="Partition Number (current: $SATAPART) [1-4]" \
-	  --add-entry="SATA Device Filename (current: $SATAROOT)" \
-	  `
-  (( $? )) && exit 1
-  SATAPART=`echo $FORM | cut -d \| -f 1`
-
-  [[ -z $SATAPART ]] && error "SATAPART cannot be empty"
-
-  SATAROOT=`echo $FORM | cut -d \| -f 2`
-
-  [[ -z $SATAROOT ]] && error "SATAROOT cannot be empty"
-
-
-  boot_satavars $SATAPART $SATAROOT
+  BOOT=`$PRINTENV src 2>&1`
+  (( $? )) && error "$BOOT"
   
+  #remove "src=" from string 
+  BOOT=`echo $BOOT | cut -d= -f2`
+  
+  current_default()
+  {
+  #current_default($CURRENT)
+    local CURRENT=$1
+    local i=0
+    local src 
+    
+    #from 0 to lenght-1
+    for src in ${SRC[@]}
+    do
+      if [[ $CURRENT == $src ]]
+      then
+	echo TRUE $src \"${DESC[$i]}\"
+      else
+	echo FALSE $src \"${DESC[$i]}\"
+      fi
+    let i++
+    done
   }
+  
+  BOOTSRC=`current_default $BOOT | xargs $D  \
+	    --title="Default Boot Drive" \
+	    --width=400 \
+	    --height=300 \
+	    --list \
+	    --text="Choose a default boot drive.
+U-Boot will try first to boot up the system from there." \
+	    --radiolist \
+	    --hide-header \
+	    --hide-column=2 \
+	    --column="Checkbox" \
+	    --column="Number" \
+	    --column="Option"`
+
+  (( $? )) && exit 1
+  
+  unset current_default
+  
+  #set variables
+  zboot_${BOOTSRC}vars
+  (( $? )) && exit 1
+
+  if [[ -n $BOOTSRC ]] 
+    then
+      QUIET=1
+      boot_default $BOOTSRC
+      unset QUIET
+    else 
+      exit 
+  fi
+}
 
 zboot_script()
 {
+#not useful now
   local BOOT
   local SCRIPT
   local FORM
@@ -557,7 +770,6 @@ zboot_video()
   local VIDEO
 
   VIDEO=`$PRINTENV video 2>&1`
-
   (( $? )) && error "$VIDEO"
 
   VIDEO_DEV=`echo $VIDEO | cut -d "=" -f 3- | cut -d "," -f 1`  # e.g. video=mxcfb0:dev=hdmi,1920x1080M@60,bpp=32
@@ -587,7 +799,6 @@ zboot_video()
 		    0	"ldb1" 	 "LVDS 7\"" \
 		    0	"ldb2" 	 "LVDS 15\"" \
   `
-
   (( $? )) && exit 1
 
   [[ -z $VIDEO_DEV ]] && error "VIDEO_DEV cannot be empty"
@@ -621,7 +832,7 @@ zboot_reset(){
 
   $D --question \
 	--text="The u-boot environment stored in your SD is going to be erased and overwritten by this configurator's default values. 
- You are advised to backup your actual environment before proceeding." || exit 1
+You are advised to backup your actual environment before proceeding." || exit 1
 
   boot_reset
 
@@ -643,10 +854,6 @@ do
 	  --column="Number" \
 	  --column="Option" \
 	  0		1		"Set default boot device" \
-	  0		2		"Set boot variables for netboot" \
-	  0		3		"Set boot variables for mmcboot" \
-	  0		4		"Set boot variables for sataboot" \
-	  0		5		"Use boot script" \
 	  0		6		"Set default video output" \
 	  0		7		"Change RAM memory layout" \
 	  0		8		"Reset U-Boot Environment" \
@@ -657,14 +864,6 @@ do
   case $CHOOSE in
 
     1) (zboot_default) ;;
-
-    2) (zboot_netvars) ;;
-    
-    3) (zboot_mmcvars) ;;
-    
-    4) (zboot_satavars) ;;
-
-    5) (zboot_script) ;;
 
     6) (zboot_video) ;;
     

@@ -19,6 +19,7 @@ SETENV="fw_setenv"
 NTPDATE="ntpdate-debian"
 CHKCONF="chkconfig"
 UDOO_USER="ubuntu"
+SATA="/dev/sda"
 MMC="/dev/mmcblk0"
 PART="/dev/mmcblk0p1"
 SRCFILE="udoo-defaultenv.src"
@@ -27,7 +28,7 @@ INSSERV="/usr/lib/insserv/insserv"
 ZONEFILE="/etc/localtime"
 ZONEINFO="/usr/share/zoneinfo/"
 declare -a ZONECONTINENTS
-ZONECONTINENTS=('America' 'Asia' 'Europe' 'Australia' 'Africa' 'Atlantic' 'Pacific'  'Antartica' 'Etc')
+ZONECONTINENTS=('America' 'Asia' 'Europe' 'Australia' 'Africa' 'Atlantic' 'Pacific'  'Antarctica' 'Etc')
 
 KBD_DEFAULT="/etc/default/keyboard"
 KBD_RULES="/usr/share/X11/xkb/rules/xorg.lst"
@@ -65,7 +66,7 @@ ch_passwd() {
 
   echo $USER:$PASSWD | chpasswd || error "chpasswd failed"
 
-  ok
+  ok "The password has been changed successfully!"
 }
 
 ch_host() {
@@ -88,7 +89,7 @@ ch_host() {
   [[ "$(cat /etc/hostname)" == 	"$UDOO_NEW" ]] && \
   [[ "$(cat /etc/hostname)" =~ 	"$UDOO_NEW" ]] || error
   
-  ok "Success! (New hostname: $UDOO_NEW)
+  ok "The hostname has been changed successfully!
 Please reboot!"
 
 }
@@ -271,8 +272,8 @@ EOF
 }
 
 boot_default() {
-  #boot_default($BOOTSRC)
-  local BOOTSRC=$1
+  #boot_default($BOOTSRC,$QUIET)
+  local BOOTSRC=$1	
   local BOOT
 
   if [[ -n $BOOTSRC ]] 
@@ -284,6 +285,64 @@ boot_default() {
   fi
   
   ok "The default boot device is successfully changed!"
+}
+
+
+
+boot_mmcvars() {
+#boot_mmcvars($MMCPART)
+
+  local MMCPART=$1
+  local MMCROOT
+  local BOOT
+
+  [[ -z $MMCPART ]] && error "MMCPART cannot be empty"
+
+  #compose
+  MMCROOT=${MMC}p${MMCPART}
+  
+  #check
+  [[ ! -b $MMCROOT ]] && error "$MMCROOT is not a valid block device"
+
+  #set
+  BOOT=`$SETENV mmcpart $MMCPART 2>&1`
+  (( $? )) && error "$BOOT"
+
+  BOOT=`$SETENV mmcroot $MMCROOT 2>&1`
+  (( $? )) && error "$BOOT"
+  
+  sync
+  
+  ok "The environment variables has been changed successfully"
+
+}
+
+boot_satavars() {
+#boot_mmcvars($SATAPART)
+
+  local SATAPART=$1
+  local SATAROOT
+  local BOOT
+
+  [[ -z $SATAPART ]] && error "SATAPART cannot be empty"
+  
+  #compose
+  SATAROOT=${SATA}${SATAPART}
+  
+  #check
+  [[ ! -b $SATAROOT ]] && echo "$SATAROOT is not a valid block device" 1>&2
+  
+  #set
+  BOOT=`$SETENV satapart $SATAPART 2>&1`
+  (( $? )) && error "$BOOT"
+
+  BOOT=`$SETENV sataroot $SATAROOT 2>&1`
+  (( $? )) && error "$BOOT"
+  
+  sync
+  
+  ok "The sataboot environment variables has been changed successfully"
+
 }
 
 boot_netvars() {
@@ -316,48 +375,6 @@ boot_netvars() {
   (( $? )) && error "$BOOT"
   
   ok "The netboot environment variables has been changed successfully"
-
-}
-
-boot_mmcvars() {
-#boot_mmcvars($MMCPART, $MMCROOT)
-
-local MMCPART=$1
-local MMCROOT=$2
-local BOOT
-
-[[ -z $MMCPART ]] && error "MMCPART cannot be empty"
-
-[[ -z $MMCROOT ]] && error "MMCROOT cannot be empty"
-
-  BOOT=`$SETENV mmcpart $MMCPART 2>&1`
-  (( $? )) && error "$BOOT"
-
-  BOOT=`$SETENV mmcroot $MMCROOT 2>&1`
-  (( $? )) && error "$BOOT"
-  
-  ok "The mmcboot environment variables has been changed successfully"
-
-}
-
-boot_satavars() {
-#boot_mmcvars($SATAPART, $SATAROOT)
-
-  local SATAPART=$1
-  local SATAROOT=$2
-  local BOOT
-
-  [[ -z $SATAPART ]] && error "SATAPART cannot be empty"
-
-  [[ -z $SATAROOT ]] && error "SATAROOT cannot be empty"
-
-  BOOT=`$SETENV satapart $SATAPART 2>&1`
-  (( $? )) && error "$BOOT"
-
-  BOOT=`$SETENV sataroot $SATAROOT 2>&1`
-  (( $? )) && error "$BOOT"
-  
-  ok "The sataboot environment variables has been changed successfully"
 
 }
 
