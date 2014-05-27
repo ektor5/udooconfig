@@ -124,7 +124,7 @@ mem_split() {
   ok "Success! (FBMEM=${FBMEM}M GPU_RESERVED=${GPUMEM}M)"
 }
 
-print_env() {
+boot_printenv() {
   local UDOO_ENV
   UDOO_ENV=`$PRINTENV 2>&1`
 
@@ -396,8 +396,8 @@ boot_script() {
 
 boot_video() {
 #boot_video($VIDEO_DEV,$VIDEO_RES)
-  local VIDEO_DEV
-  local VIDEO_RES
+  local VIDEO_DEV=$1
+  local VIDEO_RES=$2
   local VIDEO
 
   [[ -z $VIDEO_DEV ]] && error "VIDEO_DEV cannot be empty"

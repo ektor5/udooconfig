@@ -146,9 +146,9 @@ zmem_split()
   mem_split $FBMEM $GPUMEM
 }
 
-zprint_env()
+zboot_printenv()
 {
-  print_env | $D --width=400 --height=300 --title="$TITLE" --text-info --font="monospace,9"
+  boot_printenv | $D --width=400 --height=300 --title="$TITLE" --text-info --font="monospace,9"
 }
 
 zntpdate_rtc()
@@ -156,7 +156,8 @@ zntpdate_rtc()
   ntpdate_rtc
 }
 
-zch_keyboard(){
+zch_keyboard()
+{
   #local UDOO_OLD=`grep XKBLAYOUT $KBD_DEFAULT | cut -d = -f 2 | tr -d \"`
   local UDOO_OLD=`setxkbmap -query | sed -e 's/^layout:\ *\(\w*\)/\1/p' -n`
   local UDOO_NEW
@@ -219,7 +220,8 @@ zch_keyboard(){
   ch_keyboard $UDOO_NEW 
 }
 
-zch_timezone(){
+zch_timezone()
+{
 
   local UDOO_OLD=`readlink $ZONEFILE | cut -d/ -f5-`
   local UDOO_NEW
@@ -772,7 +774,7 @@ zboot_video()
   VIDEO=`$PRINTENV video 2>&1`
   (( $? )) && error "$VIDEO"
 
-  VIDEO_DEV=`echo $VIDEO | cut -d "=" -f 3- | cut -d "," -f 1`  # e.g. video=mxcfb0:dev=hdmi,1920x1080M@60,bpp=32
+  VIDEO_DEV=`echo $VIDEO | cut -d "=" -f 4- | cut -d "," -f 1 `  # e.g. video=mxcfb0:dev=hdmi,1920x1080M@60,bpp=32
   VIDEO_RES=`echo $VIDEO | cut -d "=" -f 3- | cut -d "," -f 2-`  # e.g. video=mxcfb0:dev=hdmi,1920x1080M@60,bpp=32
 
   #zenity segfaults, turn back to --list
@@ -787,7 +789,29 @@ zboot_video()
   #VIDEO_DEV=`echo $FORM | cut -d "|" -f 1` 
   #VIDEO_RES=`echo $FORM | cut -d "|" -f 2` 
 
-  VIDEO_DEV=`$D --list --title="Set the video output environment variables" \
+  local SRC=( "hdmi" "ldb1" "ldb2" )
+  local DESC=( 'HDMI' 'LVDS 7 inch' 'LVDS 15 inch' )
+  
+  current_video() {
+    local CURRENT=$1
+    local i=0
+    local src 
+    
+    #from 0 to lenght-1
+    for src in ${SRC[@]}
+    do
+      if [[ $CURRENT == $src ]]
+      then
+	echo TRUE $src \"${DESC[$i]}\"
+      else
+	echo FALSE $src \"${DESC[$i]}\"
+      fi
+    let i++
+    done
+  }
+  
+  VIDEO_DEV=`current_video $VIDEO_DEV | xargs $D --list \
+		    --title="Set the video output environment variables" \
 		    --radiolist \
 		    --hide-header \
 		    --hide-column=2 \
@@ -795,31 +819,39 @@ zboot_video()
 		    --column="Option" \
 		    --column="Video" \
 		    --text="Default video device (current: $VIDEO_DEV)" \
-		    0	"hdmi" 	 "HDMI" \
-		    0	"ldb1" 	 "LVDS 7\"" \
-		    0	"ldb2" 	 "LVDS 15\"" \
-  `
+		    `
+
   (( $? )) && exit 1
 
   [[ -z $VIDEO_DEV ]] && error "VIDEO_DEV cannot be empty"
 
+  
+  local SRC=( "1024x768@60,bpp=32" \
+	      "1366x768@60,bpp=32" \
+	      "1920x1080@60,bpp=32" )
+  local DESC=( "1024x768" "1366x768" "1920x1080" )
+  
+
   case $VIDEO_DEV in 
-    hdmi) VIDEO_RES=`$D --list --title="Set the video output environment variables" \
+    hdmi) VIDEO_RES=`current_video $VIDEO_RES | xargs $D \
+	      --list \
+	      --title="Set the video output environment variables" \
 	      --radiolist \
 	      --hide-header \
+	      --hide-column=2 \
+	      --print-column=2 \
 	      --column="Checkbox" \
 	      --column="Option" \
+	      --column="Desc" \
 	      --text="Default resolution for video device" \
-	    0 	"1024x768@60,bpp=32" \
-	    0 	"1366x768@60,bpp=32" \
-	    0 	"1920x1080M@60,bpp=32" \
 	  `
 	  (( $? )) && exit 1
 	  ;;
     
-    ldb1) VIDEO_RES="LDB-WVGA,if=RGB666,bpp=32" ;;
-    ldb2) VIDEO_RES="1366x768M@60,if=RGB24,bpp=32" ;;
-
+    ldb1) VIDEO_RES="LDB-WVGA,if=RGB666,bpp=32" 
+	  VIDEO_DEV="ldb" ;;
+    ldb2) VIDEO_RES="1366x768M@60,if=RGB24,bpp=32" 
+	  VIDEO_DEV="ldb" ;;
   esac 
   
   [[ -z $VIDEO_RES ]] && error "VIDEO_RES cannot be empty"
@@ -830,9 +862,9 @@ zboot_video()
 zboot_reset(){
 #boot_reset()
 
-  $D --question \
-	--text="The u-boot environment stored in your SD is going to be erased and overwritten by this configurator's default values. 
-You are advised to backup your actual environment before proceeding." || exit 1
+  question "The u-boot environment stored in your SD is going to be erased and overwritten by this configurator's default values. 
+You are advised to backup your actual environment before proceeding." \
+  || exit 1
 
   boot_reset
 
@@ -871,7 +903,7 @@ do
     
     8) (zboot_reset) ;;
    
-    9) (zprint_env) ;;
+    9) (zboot_printenv) ;;
     
   esac
 
