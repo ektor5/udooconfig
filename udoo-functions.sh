@@ -22,7 +22,7 @@ UDOO_USER="ubuntu"
 SATA="/dev/sda"
 MMC="/dev/mmcblk0"
 PART="/dev/mmcblk0p1"
-SRCFILE="udoo-defaultenv.src"
+SRCFILE="$DIR/udoo-defaultenv.src"
 INSSERV="/usr/lib/insserv/insserv"
 
 ZONEFILE="/etc/localtime"
@@ -94,44 +94,6 @@ Please reboot!"
 
 }
 
-mem_split() {  
-#mem_split($FBMEM $GPUMEM)
-  local FBMEM
-  local GPUMEM
-  declare -i FBMEM GPUMEM
-  
-  FBMEM=$1
-  GPUMEM=$2
-  
-  local UDOO_ENV
-  UDOO_ENV=`$PRINTENV 2>&1`
-
-  case $? in
-	  1)  	error "$UDOO_ENV" ;;
-	  127)	error "$PRINTENV not found" ;;
-  esac
-
-  FBMEM=`echo $UDOO_ENV  | sed -n -e 's/.*fbmem\=\([0-9]*\)M.*/\1/p'`
-  GPUMEM=`echo $UDOO_ENV | sed -n -e 's/.*gpu_reserved\=\([0-9]*\)M.*/\1/p'`
-
-  (( $FBMEM )) || FBMEM=24
-  (( $GPUMEM )) || GPUMEM=128
-
-  $SETENV memory "fbmem=${FBMEM}M gpu_reserved=${GPUMEM}M" || error
-
-  sync
-  
-  ok "Success! (FBMEM=${FBMEM}M GPU_RESERVED=${GPUMEM}M)"
-}
-
-boot_printenv() {
-  local UDOO_ENV
-  UDOO_ENV=`$PRINTENV 2>&1`
-
-  (( $? )) && error "$UDOO_ENV"
-
-  $PRINTENV 2>&1 
-}
 
 ntpdate_rtc() {
   local NTP
@@ -287,7 +249,44 @@ boot_default() {
   ok "The default boot device is successfully changed!"
 }
 
+boot_vram() {  
+#boot_vram($FBMEM $GPUMEM)
+  local FBMEM
+  local GPUMEM
+  declare -i FBMEM GPUMEM
+  
+  FBMEM=$1
+  GPUMEM=$2
+  
+  local UDOO_ENV
+  UDOO_ENV=`$PRINTENV 2>&1`
 
+  case $? in
+	  1)  	error "$UDOO_ENV" ;;
+	  127)	error "$PRINTENV not found" ;;
+  esac
+
+  FBMEM=`echo $UDOO_ENV  | sed -n -e 's/.*fbmem\=\([0-9]*\)M.*/\1/p'`
+  GPUMEM=`echo $UDOO_ENV | sed -n -e 's/.*gpu_reserved\=\([0-9]*\)M.*/\1/p'`
+
+  (( $FBMEM )) || FBMEM=24
+  (( $GPUMEM )) || GPUMEM=128
+
+  $SETENV memory "fbmem=${FBMEM}M gpu_reserved=${GPUMEM}M" || error
+
+  sync
+  
+  ok "The RAM video variables has been changed successfully"
+  }
+
+boot_printenv() {
+  local UDOO_ENV
+  UDOO_ENV=`$PRINTENV 2>&1`
+
+  (( $? )) && error "$UDOO_ENV"
+
+  $PRINTENV 2>&1 
+}
 
 boot_mmcvars() {
 #boot_mmcvars($MMCPART)
@@ -467,7 +466,7 @@ else
 
 fi 
 
-ok
+ok "All tasks completed successfully"
 
 }
 
@@ -495,5 +494,4 @@ cat <<USAGE
 TODO
 
 USAGE
-alias ll="ls -lv --group-directories-first"
 }

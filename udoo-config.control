@@ -1,7 +1,7 @@
 # Source: <source package name; defaults to package name>
 Section: misc
 Priority: optional
-# Homepage: http://www.udoo.org
+Homepage: http://www.udoo.org
 Standards-Version: 3.9.2
 
 Package: udoo-config
@@ -19,14 +19,27 @@ Architecture: all
 # Readme: <README.Debian file; defaults to a generic one>
 # Extra-Files: <comma-separated list of additional files for the doc directory>
 Files: udoo-config.conf /etc/
- udoo-config.sh /usr/bin/
+ udoo-config.sh /usr/share/udoo-config/
  udoo-config.png /usr/share/pixmaps/
  udoo-config.desktop /usr/share/applications/
  udoo-config-zenity.sh /usr/share/udoo-config/
  udoo-functions.sh /usr/share/udoo-config/
  udoo-defaultenv.src /usr/share/udoo-config/
+File: postinst
+  #!/bin/sh -e
+  # preinst for udoo-config. Divert some configuration file of main-package.
+  
+  set -e
+  
+  PKG=udoo-config
+  
+  test -f /usr/bin/udoo-config.sh && rm /usr/bin/udoo-config.sh
+  
+  ln -sf /usr/share/udoo-config/udoo-config.sh /usr/bin/udoo-config
+  
+  exit 0 
 Description: UDOO Configuration Tool
  This package provides a configuration script that helps to manage 
  few settings for the UDOO Board (hostname, user password, time, 
- uboot environment variables and so on)
- 
+ uboot environment variables and so on) 
+  

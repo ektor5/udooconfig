@@ -95,7 +95,9 @@ zdaemonctl(){
       DAEMONS="$DAEMONS FALSE $DAEMON"
     fi
   done
-  echo $DAEMONS
+  
+  echo $DAEMONS #DEBUG
+  
   DAEMON_CHOOSE_=`$D --title="$TITLE" \
 		    --width=400 \
 		    --height=300 \
@@ -222,72 +224,7 @@ zch_host()
   ch_host $UDOO_NEW 
 }
 
-zmem_split()
-{
-  local UDOO_ENV
-  local FBMEM
-  local GPUMEM
-  declare -i FBMEM GPUMEM
-  
-  UDOO_ENV=`$PRINTENV 2>&1`
 
-  case $? in
-	  1)  	error "$UDOO_ENV" ;;
-	  127)	error "$PRINTENV not found" ;;
-  esac
-
-  FBMEM=`echo $UDOO_ENV  | sed -n -e 's/.*fbmem\=\([0-9]*\)M.*/\1/p'`
-  GPUMEM=`echo $UDOO_ENV | sed -n -e 's/.*gpu_reserved\=\([0-9]*\)M.*/\1/p'`
-
-  (( $FBMEM )) || FBMEM=24
-  (( $GPUMEM )) || GPUMEM=128
-
-  FBMEM=`$D --title="$TITLE" \
-		  --width=400 \
-		  --height=300 \
-		  --list \
-		  --radiolist \
-		  --hide-header \
-		  --hide-column=2 \
-		  --column="Checkbox" \
-		  --column="Number" \
-		  --column="Option" \
-		  --text="Choose a memory value for framebuffer memory (current: ${FBMEM}M):" \
-		  0 	6 	"6M" \
-		  0 	10 	"10M" \
-		  0 	24 	"24M" \
-		  `
-  ( (( $? )) || (( ! $FBMEM )) ) && exit 1
-  
-
-  GPUMEM=`$D --title="$TITLE" \
-		  --width=400 \
-		  --height=300 \
-		  --list \
-		  --radiolist \
-		  --hide-header \
-		  --hide-column=2 \
-		  --column="Checkbox" \
-		  --column="Number" \
-		  --column="Option" \
-		  --text="Choose a memory value for video card reserved memory (current: ${GPUMEM}M):" \
-		  0 	1 	"1M" \
-		  0 	8 	"8M" \
-		  0 	16 	"16M" \
-		  0 	32 	"32M" \
-		  0 	64 	"64M" \
-		  0 	128 	"128M" \
-		  0 	256 	"256M" \
-		  `
-  ( (( $? )) || (( ! $GPUMEM )) ) && exit 1 	 
-
-  mem_split $FBMEM $GPUMEM
-}
-
-zboot_printenv()
-{
-  boot_printenv | $D --width=400 --height=300 --title="$TITLE" --text-info --font="monospace,9"
-}
 
 zntpdate_rtc()
 {
@@ -514,6 +451,87 @@ EOF
   ok "Root partition has been resized in the partition table ($PARTSIZE).\nThe filesystem will be enlarged upon the next reboot."
 }
 
+zboot_vram()
+{
+  local UDOO_ENV
+  local FBMEM
+  local GPUMEM
+  declare -i FBMEM GPUMEM
+  
+  UDOO_ENV=`$PRINTENV 2>&1`
+
+  case $? in
+	  1)  	error "$UDOO_ENV" ;;
+	  127)	error "$PRINTENV not found" ;;
+  esac
+
+  FBMEM=`echo $UDOO_ENV  | sed -n -e 's/.*fbmem\=\([0-9]*\)M.*/\1/p'`
+  GPUMEM=`echo $UDOO_ENV | sed -n -e 's/.*gpu_reserved\=\([0-9]*\)M.*/\1/p'`
+
+  (( $FBMEM )) || FBMEM=24
+  (( $GPUMEM )) || GPUMEM=128
+
+  local SRC=( 6 10 24 )
+  local DESC=( "6M" "10M" "24M (default)" )
+  
+  current_video() {
+    local CURRENT=$1
+    local i=0
+    local src 
+    
+    #from 0 to lenght-1
+    for src in ${SRC[@]}
+    do
+      if [[ $CURRENT == $src ]]
+      then
+	echo TRUE $src \"${DESC[$i]}\"
+      else
+	echo FALSE $src \"${DESC[$i]}\"
+      fi
+    let i++
+    done
+  }
+  
+  FBMEM=`current_video $FBMEM | xargs $D \
+		  --title="$TITLE" \
+		  --width=400 \
+		  --height=300 \
+		  --list \
+		  --radiolist \
+		  --hide-header \
+		  --hide-column=2 \
+		  --column="Checkbox" \
+		  --column="Number" \
+		  --column="Option" \
+		  --text="Choose a memory value for framebuffer memory:" \
+		  `
+  (( $? )) && exit 1
+  
+  local DESC=("1M" "8M" "16M" "32M" "64M" "128M (default)" "256M")
+  local SRC=(1 8 16 32 64 128 256)
+
+  GPUMEM=`current_video $GPUMEM | xargs $D --title="$TITLE" \
+		  --width=400 \
+		  --height=300 \
+		  --list \
+		  --radiolist \
+		  --hide-header \
+		  --hide-column=2 \
+		  --column="Checkbox" \
+		  --column="Number" \
+		  --column="Option" \
+		  --text="Choose a memory value for video card reserved memory:" \
+		  `
+  (( $? )) && exit 1
+  
+  boot_vram $FBMEM $GPUMEM
+}
+
+zboot_printenv()
+{
+  boot_printenv | $D --width=400 --height=300 --title="$TITLE" --text-info --font="monospace,9"
+}
+
 zboot_mmcvars()
 {
   local MMCPART
@@ -671,7 +689,7 @@ Be careful on next step. Do you want to continue anyway?"
 
   boot_satavars $SATAPART 
   
-  }
+}
   
 zboot_netvars()
 {
@@ -997,7 +1015,8 @@ zboot_video()
   boot_video $VIDEO_DEV $VIDEO_RES 
 }
 
-zboot_reset(){
+zboot_reset()
+{
 #boot_reset()
 
   question "The u-boot environment stored in your SD is going to be erased and overwritten by this configurator's default values. 
@@ -1037,7 +1056,7 @@ do
 
     6) (zboot_video) ;;
     
-    7) (zmem_split) ;;
+    7) (zboot_vram) ;;
     
     8) (zboot_reset) ;;
    
@@ -1071,7 +1090,6 @@ do
 	  0		6		"Update date from network and sync with RTC" \
 	  0		7		"Expand root partition to disk max capacity" \
 	  0		8		"Service Management" \
-
 	`  
   EXIT=$?
   

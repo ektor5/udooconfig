@@ -28,17 +28,11 @@ ZONEINFO="/usr/share/zoneinfo/"
 KBD_DEFAULT="/etc/default/keyboard"
 KBD_RULES="/usr/share/X11/xkb/rules/xorg.lst"
 
-PREFIX="/usr/share/udoo-config"
-
-if [[ $1 == -z ]] 
-then
-  exec $PREFIX/udoo-config-zenity.sh
-  exit $?
-fi
+DIR="$( cd "$( dirname "$(readlink ${BASH_SOURCE[0]})" )" && pwd )"
 
 [[ -f /etc/udoo-config.conf ]] && . /etc/udoo-config.conf
 
-source $PREFIX/udoo-functions.sh
+source $DIR/udoo-functions.sh
 
 if [ $(id -u) -ne 0 ] 
 then
@@ -59,4 +53,7 @@ then
   esac
   
   exit $E_CODE
+else
+  exec $DIR/udoo-config-zenity.sh
+  exit $?
 fi
