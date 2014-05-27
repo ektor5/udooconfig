@@ -467,7 +467,8 @@ else
 
 fi 
 
-return 0 
+ok
+
 }
 
 ch_vncpasswd(){

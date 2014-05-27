@@ -47,6 +47,144 @@ ok() {
   return 0
 }
 
+zdaemonctl(){
+
+  local DAEMON
+  local DAEMONS
+  local DAEMON_CHOOSE_
+  local LINE
+  local DAEMON_CHOOSE
+  local DAEMON_COMPARE
+
+  declare -a DAEMON_CHOOSE DAEMON_COMPARE
+
+  # while read LINE
+  #  do
+  #   DAEMON=`echo $LINE | cut -d" " -f1`
+  # 
+  #   if echo $LINE | grep -q on$ 
+  #   then 
+  #     DAEMONS="$DAEMONS TRUE $DAEMON"    
+  #     #APPEND TO DAEMON_COMPARE ARRAY
+  #      DAEMON_COMPARE[$I]=$DAEMON
+  #   else
+  #     DAEMONS="$DAEMONS FALSE $DAEMON"
+  #   fi
+  #   
+  # done < <( daemonctl | sort -V | grep 0 -v )
+
+  #SEMPLIFIED VERSION
+  
+  ##
+  #LIST DAEMONS
+  ##
+  local QUIET=1 #no "success" message
+  local I=1
+  for DAEMON in ${DAEMON_LIST[@]}
+  do
+    echo $DAEMON #DEBUG
+    LINE=`daemonctl $DAEMON`
+    echo $LINE #DEBUG
+    if echo $LINE | grep -q on$ 
+    then 
+      DAEMONS="$DAEMONS TRUE $DAEMON"
+      #APPEND TO DAEMON_COMPARE ARRAY
+      DAEMON_COMPARE[$I]=$DAEMON
+      let I++
+    else
+      DAEMONS="$DAEMONS FALSE $DAEMON"
+    fi
+  done
+  echo $DAEMONS
+  DAEMON_CHOOSE_=`$D --title="$TITLE" \
+		    --width=400 \
+		    --height=300 \
+		    --list \
+		    --checklist \
+		    --hide-header \
+		    --print-column="ALL" \
+		    --column="Checkbox" \
+		    --column="Daemon" \
+		    --text="Check the daemons you want to enable/disable" \
+		    $DAEMONS \
+		    `
+  #NO CHOICE
+  (( $? )) && exit 0 
+
+  #FILL CHOOSED DAEMON ARRAY
+
+  #case 1 element
+  DAEMON_CHOOSE_="$DAEMON_CHOOSE_|"
+  echo $DAEMON_CHOOSE_ #DEBUG
+
+  I=1
+  DAEMON_CHOOSE[$I]=`echo $DAEMON_CHOOSE_ | cut -d\| -f$I`
+  while [[ -n ${DAEMON_CHOOSE[$I]} ]]
+  do
+    let I++
+    DAEMON_CHOOSE[$I]=`echo $DAEMON_CHOOSE_ | cut -d\| -f$I`
+  done
+
+  echo LST_ ${DAEMON_LIST[@]} #DEBUG
+  echo CMP_ ${DAEMON_COMPARE[@]} #DEBUG
+  echo CHO_ ${DAEMON_CHOOSE[@]} #DEBUG
+
+  # A	B	ACTION
+
+  # Y	Y	Do nothing	CMP++ CHO++ LST++
+  # Y	N	Turn off	CMP++	    LST++
+  # N	Y	Turn on		      CHO++ LST++
+  # N	N	Do nothing		    LST++
+
+  local LST=0
+  local CMP=1
+  local CHO=1
+  local A
+  local B
+
+  while [[ -n ${DAEMON_LIST[$LST]} ]]
+  do 
+
+  echo LST ${DAEMON_LIST[$LST]} #DEBUG  
+  echo CMP ${DAEMON_COMPARE[$CMP]} #DEBUG
+  echo CHO ${DAEMON_CHOOSE[$CHO]} #DEBUG
+
+  #A
+    if [[ ${DAEMON_LIST[$LST]} == ${DAEMON_COMPARE[$CMP]} ]]
+    then 
+      A=Y
+      let CMP++
+    else 
+      A=N
+    fi
+  #B  
+    if [[ ${DAEMON_LIST[$LST]} == ${DAEMON_CHOOSE[$CHO]} ]] 
+    then 
+      B=Y 
+      let CHO++
+    else 
+      B=N
+    fi
+    
+    
+    echo FLG $A $B #DEBUG
+    
+    [[ $A != $B ]] && if [[ $A == "Y" ]]
+      then
+	daemonctl ${DAEMON_LIST[$LST]} off
+      else
+	daemonctl ${DAEMON_LIST[$LST]} on  
+    fi
+
+    let LST++
+  done
+
+  unset A B
+  unset QUIET
+  
+  ok
+}
+
 zch_passwd()
 {
   ## ch_passwd 
@@ -931,7 +1069,9 @@ do
 	  0		4		"Change Timezone Setting" \
 	  0		5		"Change VNC Password" \
 	  0		6		"Update date from network and sync with RTC" \
-	  0		7		"Expand root partition to disk max capacity" 
+	  0		7		"Expand root partition to disk max capacity" \
+	  0		8		"Service Management" \
+
 	`  
   EXIT=$?
   
@@ -949,7 +1089,9 @@ do
      
     6) (zntpdate_rtc) ;;
     
-    7) (expand_fs) ;;       
+    7) (expand_fs) ;;   
+    
+    8) (zdaemonctl) ;;
   esac
 
 done
