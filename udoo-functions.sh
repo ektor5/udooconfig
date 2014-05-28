@@ -19,7 +19,8 @@ SETENV="fw_setenv"
 NTPDATE="ntpdate-debian"
 CHKCONF="chkconfig"
 UDOO_USER="ubuntu"
-SATA="/dev/sda"
+SATADRIVES="/dev/disk/by-id/ata-"
+SATADEV="/dev/sda"
 MMC="/dev/mmcblk0"
 PART="/dev/mmcblk0p1"
 SRCFILE="$DIR/udoo-defaultenv.src"
@@ -357,7 +358,7 @@ boot_satavars() {
   [[ -z $SATAPART ]] && error "SATAPART cannot be empty"
   
   #compose
-  SATAROOT=${SATA}${SATAPART}
+  SATAROOT=${SATADEV}${SATAPART}
   
   #check
   [[ ! -b $SATAROOT ]] && echo "$SATAROOT is not a valid block device" 1>&2

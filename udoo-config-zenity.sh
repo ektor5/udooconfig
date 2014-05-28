@@ -619,16 +619,50 @@ zboot_mmcvars(){
   
 }
 
-zboot_satavars()
-{
+zboot_satavars(){
   local SATAPART
-  local SATAROOT
+  local SATAROOT  
+  local SATA
   local parts=0
+
   local -a DESC=('Partition 1 (default)' \
 	      'Partition 2' \
 	      'Partition 3' \
 	      'Partition 4') 
 
+  #Take only the ata- drive (one supported) and read the link 
+  SATA=( `ls ${SATADRIVES}* -1 2>/dev/null | grep "part" -v` )
+  
+  if [[ ${#SATA[@]} == 1 ]]
+  then 
+    SATA="/dev/$(readlink $SATA | cut -d/ -f 3)"
+  elif [[ ${#SATA[@]} > 1 ]]
+  then
+    #CHOOSE
+    local i 
+    for i in ${SATA[@]} ; do echo FALSE $i ; done
+
+    local CHOOSE=`$D  \
+	      --title="Choose your SATA boot drive" \
+	      --width=400 \
+	      --height=300 \
+	      --list \
+	      --text="It seems you've connected multiple ata devices. 
+Choose the one you want to configure (if you have a usb device, exit and disconnect it)" \
+	      --radiolist \
+	      --hide-header \
+	      --hide-column=2 \
+	      --column="Checkbox" \
+	      --column="Device" \
+	      --column="Desc" \
+	      $(for i in ${SATA[@]} ; do echo FALSE $i ${i##*ata-} ; done)`
+    (( $? )) && exit 1
+    SATA="/dev/$(readlink $CHOOSE | cut -d/ -f 3)"
+  fi
+  
+  echo $SATA #DEBUG
+  
+  #CURRENT
   SATAPART=`$PRINTENV satapart 2>&1`
   (( $? )) && error "$SATAPART"
   SATAPART=`echo -n $SATAPART | tail -c1`
@@ -647,17 +681,34 @@ zboot_satavars()
     unset dev
   fi
   
-  #or choose between 4 possible partition
-  [[ $parts == 0 ]] && parts=4 && \
-    question "No partition found on $SATA, check configuration.
+  #or choose between 4 possible partition if
+  if [[ $parts == 0 ]] 
+  then 
+    if [[ -b $SATA ]]
+    then
+    #no partitions
+      parts=4
+      question "No partition found on $SATA, check configuration.
 Be careful on next step. Do you want to continue anyway?"
-  (( $? )) && exit 1
-
+      (( $? )) && exit 1
+    else
+    #no drives
+      parts=4
+      question "No ata drive found, check configuration.
+Be careful on next step. Do you want to continue anyway?"
+      (( $? )) && exit 1
+    fi
+  fi
+  
   if [[ $parts == 1 ]]
   then
-    #set automatically, don't ask
-    SATAPART=1 
+    #set automatically
+    SATAPART=1     
+    question "Found 1 partition on $SATA. Selecting it as the boot partition.
+Is this correct?"
+    (( $? )) && exit 1
   else
+    #or choose
     current_sata()
     {
     #current_sata($CURRENT)
