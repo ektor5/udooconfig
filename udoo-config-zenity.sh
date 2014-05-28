@@ -19,28 +19,28 @@ SETENV="fw_setenv"
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/udoo-functions.sh
 
-error() {
+error(){
   TEXT=$1
   [[ -z $TEXT ]] && TEXT="A fatal error has occoured!"
   $D --title="$TITLE" --error --text="$TEXT"
   exit 1
 }
 
-alert() {
+alert(){
   TEXT=$1
   [[ -z $TEXT ]] && TEXT="An error has occoured! Warning!"
   $D --title="$TITLE" --warning --text="$TEXT"
   return 0
 }
 
-question() {
+question(){
   TEXT=$1
   [[ -z $TEXT ]] && TEXT="An error has occoured!"
   $D --title="$TITLE" --question --text="$TEXT"
   return $?
 }
 
-ok() {
+ok(){
   TEXT=$1
   [[ -z $TEXT ]] && 	TEXT="Success!"
   (( $QUIET )) || 	$D --title="$TITLE" --info --text="$TEXT"
@@ -187,12 +187,33 @@ zdaemonctl(){
   ok
 }
 
-zch_passwd()
-{
+zch_vncpasswd(){
+  ## ch_vncpasswd 
+  
+  local PASSWD
+  local PASSWR
+  
+  PASSWD=`$D --title="$TITLE" --entry --text="Enter new password for remote desktop access" --hide-text`
+  (( $? )) && exit 1
+ 
+  [[ -z $PASSWD ]] && error "Password cannot be empty"
+
+  ## DOUBLE CHECK
+  PASSWR=`$D --title="$TITLE" --entry --text="Re-enter password" --hide-text` 
+
+  [[ $PASSWD != $PASSWR ]] && error 'Sorry, passwords do not match'
+      
+  ch_vncpasswd $PASSWD
+ 
+}
+
+zch_passwd(){
   ## ch_passwd 
   
   local PASSWD
-  PASSWD=`$D --title="$TITLE" --entry --text="Enter new password" --hide-text`
+  local PASSWR
+  
+  PASSWD=`$D --title="$TITLE" --entry --text="Enter new user password" --hide-text`
 
   (( $? )) && exit 1
  
@@ -207,8 +228,7 @@ zch_passwd()
  
 }
 
-zch_host()
-{
+zch_host(){
   local UDOO_OLD=`cat /etc/hostname`
   local UDOO_NEW
   UDOO_NEW=`$D --title="$TITLE" --entry --text="Enter hostname (current: $UDOO_OLD)" `
@@ -224,15 +244,11 @@ zch_host()
   ch_host $UDOO_NEW 
 }
 
-
-
-zntpdate_rtc()
-{
+zntpdate_rtc(){
   ntpdate_rtc
 }
 
-zch_keyboard()
-{
+zch_keyboard(){
   #local UDOO_OLD=`grep XKBLAYOUT $KBD_DEFAULT | cut -d = -f 2 | tr -d \"`
   local UDOO_OLD=`setxkbmap -query | sed -e 's/^layout:\ *\(\w*\)/\1/p' -n`
   local UDOO_NEW
@@ -295,8 +311,7 @@ zch_keyboard()
   ch_keyboard $UDOO_NEW 
 }
 
-zch_timezone()
-{
+zch_timezone(){
 
   local UDOO_OLD=`readlink $ZONEFILE | cut -d/ -f5-`
   local UDOO_NEW
@@ -371,8 +386,7 @@ zch_timezone()
   ch_timezone $UDOO_NEW
 }
 
-expand_fs()
-{
+expand_fs(){
   ( [[ -b $MMC ]] && [[ -b $PART ]] ) || error "I can't open $MMC / $PART . Check and edit /etc/udoo-config.conf"
 
   PARTSIZE=`parted $MMC -ms p | grep \^1 | cut -f 3 -d: `
@@ -451,8 +465,7 @@ EOF
   ok "Root partition has been resized in the partition table ($PARTSIZE).\nThe filesystem will be enlarged upon the next reboot."
 }
 
-zboot_vram()
-{
+zboot_vram(){
   local UDOO_ENV
   local FBMEM
   local GPUMEM
@@ -527,13 +540,11 @@ zboot_vram()
   boot_vram $FBMEM $GPUMEM
 }
 
-zboot_printenv()
-{
+zboot_printenv(){
   boot_printenv | $D --width=400 --height=300 --title="$TITLE" --text-info --font="monospace,9"
 }
 
-zboot_mmcvars()
-{
+zboot_mmcvars(){
   local MMCPART
   local MMCROOT
   local -a DESC=('Partition 1 (default)' \
@@ -691,8 +702,7 @@ Be careful on next step. Do you want to continue anyway?"
   
 }
   
-zboot_netvars()
-{
+zboot_netvars(){
   local IPADDR
   local SERVERIP
   local NFSROOT
@@ -828,8 +838,7 @@ Are you sure?"
 
 }
 
-zboot_default()
-{
+zboot_default(){
   local BOOTSRC
   local BOOT
   local SRC=('mmc' 'sata' 'net')
@@ -893,8 +902,7 @@ U-Boot will try first to boot up the system from there." \
   fi
 }
 
-zboot_script()
-{
+zboot_script(){
 #not useful now
   local BOOT
   local SCRIPT
@@ -921,8 +929,7 @@ zboot_script()
   boot_script $SCRIPT
 }
 
-zboot_video()
-{
+zboot_video(){
   local VIDEO_DEV
   local VIDEO_RES
   local VIDEO
@@ -1015,8 +1022,7 @@ zboot_video()
   boot_video $VIDEO_DEV $VIDEO_RES 
 }
 
-zboot_reset()
-{
+zboot_reset(){
 #boot_reset()
 
   question "The u-boot environment stored in your SD is going to be erased and overwritten by this configurator's default values. 
@@ -1027,8 +1033,7 @@ You are advised to backup your actual environment before proceeding." \
 
 }
 
-zboot_mgr()
-{
+zboot_mgr(){
 until (( $EXIT ))
 do
   CHOOSE=`$D  --title="U-Boot Manager" \
@@ -1067,56 +1072,54 @@ do
 done
 }
 
-zsys_mgr()
-{
-until (( $EXIT ))
-do
-  CHOOSE=`$D  --title="System Manager" \
-	  --width=400 \
-	  --height=300 \
-	  --list \
-	  --text="Choose an option:" \
-	  --radiolist \
-	  --hide-header \
-	  --hide-column=2 \
-	  --column="Checkbox" \
-	  --column="Number" \
-	  --column="Option" \
-	  0		1		"Change User Password" \
-	  0		2		"Change Hostname" \
-	  0		3		"Change Keyboard Layout" \
-	  0		4		"Change Timezone Setting" \
-	  0		5		"Change VNC Password" \
-	  0		6		"Update date from network and sync with RTC" \
-	  0		7		"Expand root partition to disk max capacity" \
-	  0		8		"Service Management" \
-	`  
-  EXIT=$?
-  
-  case $CHOOSE in
-
-    1) (zch_passwd $UDOO_USER) ;;
-
-    2) (zch_host) ;;
+zsys_mgr(){
+  until (( $EXIT ))
+  do
+    CHOOSE=`$D  --title="System Manager" \
+	    --width=400 \
+	    --height=300 \
+	    --list \
+	    --text="Choose an option:" \
+	    --radiolist \
+	    --hide-header \
+	    --hide-column=2 \
+	    --column="Checkbox" \
+	    --column="Number" \
+	    --column="Option" \
+	    0		1		"Change User Password" \
+	    0		2		"Change Hostname" \
+	    0		3		"Change Keyboard Layout" \
+	    0		4		"Change Timezone Setting" \
+	    0		5		"Change VNC Password" \
+	    0		6		"Update date from network and sync with RTC" \
+	    0		7		"Expand root partition to disk max capacity" \
+	    0		8		"Service Management" \
+	  `  
+    EXIT=$?
     
-    3) (zch_keyboard) ;;
+    case $CHOOSE in
 
-    4) (zch_timezone) ;;
-    
-    5) (zch_vncpasswd) ;;
-     
-    6) (zntpdate_rtc) ;;
-    
-    7) (expand_fs) ;;   
-    
-    8) (zdaemonctl) ;;
-  esac
+      1) (zch_passwd $UDOO_USER) ;;
 
-done
+      2) (zch_host) ;;
+      
+      3) (zch_keyboard) ;;
+
+      4) (zch_timezone) ;;
+      
+      5) (zch_vncpasswd) ;;
+      
+      6) (zntpdate_rtc) ;;
+      
+      7) (expand_fs) ;;   
+      
+      8) (zdaemonctl) ;;
+    esac
+
+  done
 }
 
-zcredits()
-{
+zcredits(){
   $D 	--title="Credits" --info --text="
 Credits by:
 

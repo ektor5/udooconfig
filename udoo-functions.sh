@@ -24,6 +24,7 @@ MMC="/dev/mmcblk0"
 PART="/dev/mmcblk0p1"
 SRCFILE="$DIR/udoo-defaultenv.src"
 INSSERV="/usr/lib/insserv/insserv"
+VNCPASSWD="/home/$UDOO_USER/.vnc/passwd"
 
 ZONEFILE="/etc/localtime"
 ZONEINFO="/usr/share/zoneinfo/"
@@ -52,6 +53,52 @@ ok() {
   [[ -z $OK_TEXT ]] && OK_TEXT="Success!!"
   [[ -z $OK_TEXT ]] || echo $OK_TEXT 
   exit 0
+}
+
+daemonctl(){
+#daemonctl($DAEMON,$OPT)
+
+  #check if insserv is where it should be, if not, symlink it
+  [[ -f /sbin/insserv ]] || [[ -f $INSSERV ]] && ln -sf $INSSERV /sbin/insserv
+
+  (( $? )) && error "Failed to symlink $INSSERV to /sbin/insserv"
+
+  local DAEMON=$1
+  local OPT=$2
+
+  #filter
+  case $OPT in
+    on)	SELECT=on  ;; 
+    off) 	SELECT=off ;; 
+    *)    SELECT="" ;;
+  esac
+
+  if [[ -z $DAEMON ]] 
+  then
+    #LIST ALL
+    $CHKCONF 2>/dev/null  
+  else
+    #DO SOMETHING
+    echo $CHKCONF $DAEMON $SELECT 1>&2
+    $CHKCONF $DAEMON $SELECT 2>/dev/null
+    E_CODE=$?
+    (( $E_CODE )) && error "Cannot install/remove service $DAEMON"
+
+  fi 
+
+  ok "All tasks completed successfully"
+
+}
+
+ch_vncpasswd(){
+#ch_vncpasswd($PASSWD)
+local PASSWD=$1
+
+[[ -z $PASSWD ]] && error "Password cannot be empty!"
+
+#Write it into /home/user/.vnc/passwd
+echo $PASSWD | vncpasswd -f > $VNCPASSWD
+
 }
 
 ch_passwd() {
@@ -93,7 +140,6 @@ ch_host() {
 Please reboot!"
 
 }
-
 
 ntpdate_rtc() {
   local NTP
@@ -233,22 +279,6 @@ EOF
 
 }
 
-boot_default() {
-  #boot_default($BOOTSRC,$QUIET)
-  local BOOTSRC=$1	
-  local BOOT
-
-  if [[ -n $BOOTSRC ]] 
-    then 
-      BOOT=`$SETENV src $BOOTSRC 2>&1`
-      (( $? )) && error "$BOOT"
-    else 
-      error "BOOTSRC cannot be empty"
-  fi
-  
-  ok "The default boot device is successfully changed!"
-}
-
 boot_vram() {  
 #boot_vram($FBMEM $GPUMEM)
   local FBMEM
@@ -262,8 +292,8 @@ boot_vram() {
   UDOO_ENV=`$PRINTENV 2>&1`
 
   case $? in
-	  1)  	error "$UDOO_ENV" ;;
-	  127)	error "$PRINTENV not found" ;;
+    1)   error "$UDOO_ENV" ;;
+    127) error "$PRINTENV not found" ;;
   esac
 
   FBMEM=`echo $UDOO_ENV  | sed -n -e 's/.*fbmem\=\([0-9]*\)M.*/\1/p'`
@@ -277,7 +307,8 @@ boot_vram() {
   sync
   
   ok "The RAM video variables has been changed successfully"
-  }
+
+}
 
 boot_printenv() {
   local UDOO_ENV
@@ -377,6 +408,22 @@ boot_netvars() {
 
 }
 
+boot_default() {
+  #boot_default($BOOTSRC,$QUIET)
+  local BOOTSRC=$1	
+  local BOOT
+
+  if [[ -n $BOOTSRC ]] 
+    then 
+      BOOT=`$SETENV src $BOOTSRC 2>&1`
+      (( $? )) && error "$BOOT"
+    else 
+      error "BOOTSRC cannot be empty"
+  fi
+  
+  ok "The default boot device is successfully changed!"
+}
+
 boot_script() {
 #boot_script($SCRIPT)
   local BOOT
@@ -434,51 +481,9 @@ boot_reset(){
 
 }
 
-daemonctl()
-{
-#daemonctl($DAEMON,$OPT)
-
-#check if insserv is where it should be, if not, symlink it
-[[ -f /sbin/insserv ]] || [[ -f $INSSERV ]] && ln -sf $INSSERV /sbin/insserv
-
-(( $? )) && error "Failed to symlink $INSSERV to /sbin/insserv"
-
-local DAEMON=$1
-local OPT=$2
-
-#filter
-case $OPT in
-  on)	SELECT=on  ;; 
-  off) 	SELECT=off ;; 
-  *)    SELECT="" ;;
-esac
-
-if [[ -z $DAEMON ]] 
-then
-  #LIST ALL
-  $CHKCONF 2>/dev/null  
-else
-  #DO SOMETHING
-  echo $CHKCONF $DAEMON $SELECT 1>&2
-  $CHKCONF $DAEMON $SELECT 2>/dev/null
-  E_CODE=$?
-  (( $E_CODE )) && error "Cannot install/remove service $DAEMON"
-
-fi 
-
-ok "All tasks completed successfully"
-
-}
-
-ch_vncpasswd(){
-
-echo TODO
-
-}
-
 credits() {
 
-cat <<CREDITS
+  cat <<CREDITS
 Credits by:
 
 Ettore Chimenti AKA ektor-5
@@ -490,7 +495,7 @@ CREDITS
 }
 
 usage(){
-cat <<USAGE
+  cat <<USAGE
 TODO
 
 USAGE
