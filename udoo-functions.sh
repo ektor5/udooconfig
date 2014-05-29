@@ -127,11 +127,11 @@ ch_host() {
   local UDOO_NEW=$1
   UDOO_NEW=`echo $UDOO_NEW | tr -d " \t\n\r" `
 
-  if grep -q " $UDOO_OLD\$" /etc/hosts 
+  if grep -q "\s$UDOO_OLD\$" /etc/hosts 
   then 
-    sed -e "s/$UDOO_OLD/$UDOO_NEW/g" -i /etc/hosts 
+    sed -e "s/\s$UDOO_OLD\$/\t$UDOO_NEW/g" -i /etc/hosts 
   else
-    echo "\n127.0.0.1 $UDOO_NEW" >> /etc/hosts
+    echo $'\n'127.0.0.1$'\t'"$UDOO_NEW" >> /etc/hosts
   fi
     
   echo $UDOO_NEW > /etc/hostname
