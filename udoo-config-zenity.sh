@@ -496,11 +496,11 @@ zboot_vram(){
   local FBMEM
   local GPUMEM
   declare -i FBMEM GPUMEM
-  
-  UDOO_ENV=`$PRINTENV 2>&1`
+   
+  UDOO_ENV=`$PRINTENV memory 2>&1`
 
   case $? in
-	  1)  	error "$UDOO_ENV" ;;
+	  1)  	error "$UDOO_ENV \nTry resetting the uboot environment" ;;
 	  127)	error "$PRINTENV not found" ;;
   esac
 

@@ -138,8 +138,8 @@ ch_host() {
   
   # CHECK
 
-  [[ "$(cat /etc/hostname)" == 	"$UDOO_NEW" ]] && \
-  [[ "$(cat /etc/hostname)" =~ 	"$UDOO_NEW" ]] || error
+  [[ "$(cat /etc/hostname)" == "$UDOO_NEW" ]] && \
+  [[ "$(cat /etc/hostname)" =~ "$UDOO_NEW" ]] || error
   
   ok "The hostname has been changed successfully!
 Please reboot!"
@@ -286,27 +286,13 @@ EOF
 
 boot_vram() {  
 #boot_vram($FBMEM $GPUMEM)
-  local FBMEM
-  local GPUMEM
+  local FBMEM=$1
+  local GPUMEM=$2
   declare -i FBMEM GPUMEM
   
-  FBMEM=$1
-  GPUMEM=$2
+  [[ -z $FBMEM ]] && error "FBMEM cannot be empty"
+  [[ -z $GPUMEM ]] && error "GPUMEM cannot be empty"
   
-  local UDOO_ENV
-  UDOO_ENV=`$PRINTENV 2>&1`
-
-  case $? in
-    1)   error "$UDOO_ENV" ;;
-    127) error "$PRINTENV not found" ;;
-  esac
-
-  FBMEM=`echo $UDOO_ENV  | sed -n -e 's/.*fbmem\=\([0-9]*\)M.*/\1/p'`
-  GPUMEM=`echo $UDOO_ENV | sed -n -e 's/.*gpu_reserved\=\([0-9]*\)M.*/\1/p'`
-
-  (( $FBMEM )) || FBMEM=24
-  (( $GPUMEM )) || GPUMEM=128
-
   $SETENV memory "fbmem=${FBMEM}M gpu_reserved=${GPUMEM}M" || error
 
   sync
