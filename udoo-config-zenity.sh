@@ -314,70 +314,92 @@ zch_keyboard(){
 
 zch_timezone(){
 
-  local UDOO_OLD=`readlink $ZONEFILE | cut -d/ -f5-`
   local UDOO_NEW
   local CONTINENT
   local ZONE
   
+  #current
+  if [[ -L $ZONEFILE ]]
+  then
+    local UDOO_OLD=`readlink $ZONEFILE | cut -d/ -f5-`
+  elif [[ -f $ZONEFILE ]]
+  then
+    local UDOO_OLD=`cat $ZONEFILE | cut -d/ -f2-`
+  else
+    local UDOO_OLD=""
+  fi 
+  
+  local CONT_OLD=${UDOO_OLD%/*}
+  local ZONE_OLD=${UDOO_OLD#*/}
+    
   take_continents()
   {
-  #take_continents($UDOO_OLD)
-  local CURRENT=`echo $1 | cut -d/ -f1`
-
-  for CONT in ${ZONECONTINENTS[@]}
-  do
-    if [[ $CONT =~ $CURRENT ]]
-    then
-      echo TRUE $CONT
-    else
-      echo FALSE $CONT
-    fi
-  done
+  #take_continents($OLD)
+    local CURRENT=$1
+    local CONT
+    
+    for CONT in ${ZONECONTINENTS[@]}
+    do
+      if [[ $CONT == $CURRENT ]]
+      then
+	echo TRUE \"$CONT\"
+      else
+	echo FALSE \"$CONT\"
+      fi
+    done
   }
 
-  CONTINENT=`take_continents $UDOO_OLD | xargs $D --title="$TITLE" --list \
-	      --text="Enter your geographic area" \
-	      --width=400 \
-	      --height=300 \
-	      --radiolist \
-	      --hide-header \
-	      --print-column=2 \
-	      --column="Checkbox" \
-	      --column="Keycode" \
-	      `
-
-  (( $? )) && exit 1
-
-  take_zone()
-  {
-  #take_continents($OLD $CONTINENT)
-  local CURRENT=`echo $1 | cut -d/ -f2`
-  local CONTINENT=$2
-
-  for CONT in `ls $ZONEINFO$CONTINENT`
-  do
-    if [[ $CONT =~ $CURRENT ]]
-    then
-      echo TRUE \"$CONT\"
-    else
-      echo FALSE \"$CONT\"
-    fi
-  done
-  }
-
-  ZONE=`take_zone $UDOO_OLD $CONTINENT | sed -e 's/_/ /' | xargs $D --title="$TITLE" --list \
+  CONTINENT=`take_continents $CONT_OLD | xargs $D \
+	      --title="$TITLE" \
+	      --list \
 	      --text="Enter your local zone" \
 	      --width=400 \
 	      --height=300 \
 	      --radiolist \
 	      --hide-header \
-	      --print-column=2 \
+	      --column="Checkbox" \
+	      --column="Keycode" \
+	      `
+  (( $? )) && exit 1
+  
+  take_zone()
+  {
+  #take_continents($CONTINENT $OLD)
+    local CONTINENTS=$1
+    local CURRENT=$2
+    local CONT
+    
+    [[ -z $CONTINENTS ]] && error "CONTINENT cannot be empty"
+    OIFS=$IFS
+    IFS=$'\n'
+    
+    for CONT in `ls -1 ${ZONEINFO}${CONTINENTS}`
+    do
+      if [[ $CONT == $CURRENT ]]
+      then
+	echo TRUE \"$CONT\"
+      else
+	echo FALSE \"$CONT\"
+      fi
+    done
+    
+    IFS=$OIFS
+  }
+
+  ZONE=`take_zone $CONTINENT $ZONE_OLD | sed -e 's/_/ /g' | xargs $D \
+	      --title="$TITLE" \
+	      --list \
+	      --text="Enter your local zone" \
+	      --width=400 \
+	      --height=300 \
+	      --radiolist \
+	      --hide-header \
 	      --column="Checkbox" \
 	      --column="Keycode" \
 	      `
   (( $? )) && exit 1
 
-  UDOO_NEW=`echo $CONTINENT/$ZONE | tr -d " \t\n\r" | sed -e 's/ /_/'`
+  UDOO_NEW=`echo $CONTINENT/$ZONE | sed -e 's/\ /_/g' | tr -d "\t\n\r" `
 
   unset take_zone
   unset take_continents
