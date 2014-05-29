@@ -249,39 +249,40 @@ zntpdate_rtc(){
 }
 
 zch_keyboard(){
+
   #local UDOO_OLD=`grep XKBLAYOUT $KBD_DEFAULT | cut -d = -f 2 | tr -d \"`
   local UDOO_OLD=`setxkbmap -query | sed -e 's/^layout:\ *\(\w*\)/\1/p' -n`
   local UDOO_NEW
 
   take_locales(){
-  #take_locales($current) 
-  #parser
-  local flag=false
-  local line
-  local current=$1
+    #take_locales($current) 
+    #parser
+    local flag=false
+    local line
+    local current=$1
 
-  while read line
-  #read RULES lines
-  do  
-    #check flag
-    if [[ $flag != "true" ]]
-      then
-	#trash every line until !layout comes
-	[[ $line =~ '! layout' ]] && \
-	flag=true
-      else 
-	#end reading 
-	[[ $line == '' ]] && return
-	#process line
-	line=`echo $line | sed -e 's/ \s*/ \"/' -e 's/$/\" /'`
-	#if line is current layout say TRUE
-	if [[ $line =~ ^$current ]]
-	  then echo TRUE $line
-	  else echo FALSE $line
-	fi
-    fi 
-  done < <(cat $KBD_RULES)
-  #named pipe
+    while read line
+    #read RULES lines
+    do  
+      #check flag
+      if [[ $flag != "true" ]]
+	then
+	  #trash every line until !layout comes
+	  [[ $line =~ '! layout' ]] && \
+	  flag=true
+	else 
+	  #end reading 
+	  [[ $line == '' ]] && return
+	  #process line
+	  line=`echo $line | sed -e 's/ \s*/ \"/' -e 's/$/\" /'`
+	  #if line is current layout say TRUE
+	  if [[ $line =~ ^$current ]]
+	    then echo TRUE $line
+	    else echo FALSE $line
+	  fi
+      fi 
+    done < <(cat $KBD_RULES)
+    #named pipe
   }
 
   UDOO_NEW=`take_locales $UDOO_OLD | xargs \
@@ -488,6 +489,7 @@ zboot_vram(){
   local DESC=( "6M" "10M" "24M (default)" )
   
   current_video() {
+  #current_video($OLD)
     local CURRENT=$1
     local i=0
     local src 
@@ -536,6 +538,8 @@ zboot_vram(){
 		  --text="Choose a memory value for video card reserved memory:" \
 		  `
   (( $? )) && exit 1
+  
+  unset current_video
   
   boot_vram $FBMEM $GPUMEM
 }
@@ -786,10 +790,9 @@ zboot_netvars(){
   (( $? )) && exit 1
   
   # Test an IP address for validity
-  function valid_ip()
-  {
-      local  ip=$1
-      local  stat=1
+  valid_ip() {
+      local ip=$1
+      local stat=1
 
       if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
 	  OIFS=$IFS
@@ -848,7 +851,7 @@ Are you sure?"
   
   current_getcmd()
   {
-  #current_sata($CURRENT)
+  #current_getcmd($CURRENT)
     local CURRENT=$1
     local get_cmd
     local i=0
@@ -1068,8 +1071,10 @@ zboot_video(){
 	  VIDEO_DEV="ldb" ;;
   esac 
   
+  unset current_video
+  
   [[ -z $VIDEO_RES ]] && error "VIDEO_RES cannot be empty"
-
+   
   boot_video $VIDEO_DEV $VIDEO_RES 
 }
 
@@ -1085,42 +1090,42 @@ You are advised to backup your actual environment before proceeding." \
 }
 
 zboot_mgr(){
-until (( $EXIT ))
-do
-  CHOOSE=`$D  --title="U-Boot Manager" \
-	  --width=400 \
-	  --height=300 \
-	  --list \
-	  --text="Choose an option:" \
-	  --radiolist \
-	  --hide-header \
-	  --hide-column=2 \
-	  --column="Checkbox" \
-	  --column="Number" \
-	  --column="Option" \
-	  0		1		"Set default boot device" \
-	  0		6		"Set default video output" \
-	  0		7		"Change RAM memory layout" \
-	  0		8		"Reset U-Boot Environment" \
-	  0		9		"Show U-Boot Environment" \
-	`  
-  EXIT=$?
-  
-  case $CHOOSE in
-
-    1) (zboot_default) ;;
-
-    6) (zboot_video) ;;
+  until (( $EXIT ))
+  do
+    CHOOSE=`$D  --title="U-Boot Manager" \
+	    --width=400 \
+	    --height=300 \
+	    --list \
+	    --text="Choose an option:" \
+	    --radiolist \
+	    --hide-header \
+	    --hide-column=2 \
+	    --column="Checkbox" \
+	    --column="Number" \
+	    --column="Option" \
+	    0		1		"Set default boot device" \
+	    0		6		"Set default video output" \
+	    0		7		"Change RAM memory layout" \
+	    0		8		"Reset U-Boot Environment" \
+	    0		9		"Show U-Boot Environment" \
+	  `  
+    EXIT=$?
     
-    7) (zboot_vram) ;;
-    
-    8) (zboot_reset) ;;
-   
-    9) (zboot_printenv) ;;
-    
-  esac
+    case $CHOOSE in
 
-done
+      1) (zboot_default) ;;
+
+      6) (zboot_video) ;;
+      
+      7) (zboot_vram) ;;
+      
+      8) (zboot_reset) ;;
+    
+      9) (zboot_printenv) ;;
+      
+    esac
+
+  done
 }
 
 zsys_mgr(){

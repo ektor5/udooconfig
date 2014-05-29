@@ -30,7 +30,7 @@ VNCPASSWD="/home/$UDOO_USER/.vnc/passwd"
 ZONEFILE="/etc/localtime"
 ZONEINFO="/usr/share/zoneinfo/"
 declare -a ZONECONTINENTS
-ZONECONTINENTS=('America' 'Asia' 'Europe' 'Australia' 'Africa' 'Atlantic' 'Pacific'  'Antarctica' 'Etc')
+ZONECONTINENTS=('America' 'Asia' 'Europe' 'Australia' 'Africa' 'Atlantic' 'Pacific' 'Antarctica' 'Etc')
 
 KBD_DEFAULT="/etc/default/keyboard"
 KBD_RULES="/usr/share/X11/xkb/rules/xorg.lst"
@@ -93,12 +93,16 @@ daemonctl(){
 
 ch_vncpasswd(){
 #ch_vncpasswd($PASSWD)
-local PASSWD=$1
+  local PASSWD=$1
 
-[[ -z $PASSWD ]] && error "Password cannot be empty!"
+  [[ -z $PASSWD ]] && error "Password cannot be empty!"
 
-#Write it into /home/user/.vnc/passwd
-echo $PASSWD | vncpasswd -f > $VNCPASSWD
+  #Write it into /home/user/.vnc/passwd
+  echo $PASSWD | vncpasswd -f > $VNCPASSWD
+   
+  (( $? )) && error 
+    
+  ok "The password has been changed successfully!"
 
 }
 
