@@ -100,7 +100,7 @@ ch_vncpasswd(){
   #Write it into /home/user/.vnc/passwd
   echo $PASSWD | vncpasswd -f > $VNCPASSWD
    
-  (( $? )) && error 
+  (( $? )) && error "Failed to change the password"
     
   ok "The password has been changed successfully!"
 
@@ -116,7 +116,7 @@ ch_passwd() {
   [[ -z $(grep -P "^$USER:" /etc/passwd) ]]  && error "User not found in /etc/passwd"
   [[ -z $PASSWD ]] && error "Password cannot be empty"
 
-  echo $USER:$PASSWD | chpasswd || error "chpasswd failed"
+  echo $USER:$PASSWD | chpasswd || error "Failed to change the password"
 
   ok "The password has been changed successfully!"
 }

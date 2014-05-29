@@ -253,7 +253,8 @@ zch_keyboard(){
   #local UDOO_OLD=`grep XKBLAYOUT $KBD_DEFAULT | cut -d = -f 2 | tr -d \"`
   local UDOO_OLD=`setxkbmap -query | sed -e 's/^layout:\ *\(\w*\)/\1/p' -n`
   local UDOO_NEW
-
+  local CURRENT
+  
   take_locales(){
     #take_locales($current) 
     #parser
@@ -277,28 +278,30 @@ zch_keyboard(){
 	  line=`echo $line | sed -e 's/ \s*/ \"/' -e 's/$/\" /'`
 	  #if line is current layout say TRUE
 	  if [[ $line =~ ^$current ]]
-	    then echo TRUE $line
+	  #mark current for sorting
+	    then echo 1_TRUE $line
 	    else echo FALSE $line
 	  fi
       fi 
     done < <(cat $KBD_RULES)
     #named pipe
   }
-
-  UDOO_NEW=`take_locales $UDOO_OLD | xargs \
-	      $D --title="$TITLE" --list \
+  
+  
+  UDOO_NEW=`take_locales $UDOO_OLD | sort | sed -e 's/1_//' | \
+	      xargs $D \
+	      --title="$TITLE" \
+	      --list \
 	      --text="Enter new keyboard locale" \
 	      --width=400 \
 	      --height=300 \
 	      --radiolist \
 	      --hide-header \
 	      --print-column=2 \
-	      --hide-column=2 \
 	      --column="Checkbox" \
 	      --column="Keycode" \
 	      --column="Locale" \
 	      `
-    
   (( $? )) && exit 1
   
   unset take_locales
