@@ -814,7 +814,7 @@ zboot_netvars(){
 	`
   (( $? )) && exit 1
   
-  # Test an IP address for validity
+  # Test IP address for validity
   valid_ip() {
       local ip=$1
       local stat=1
@@ -830,47 +830,71 @@ zboot_netvars(){
       fi
       return $stat
   }
+  
+ 
+  #check  
+  local ALERT
+  local i=0
+  
+  #IPADDR 
   IPADDR_OLD=$IPADDR
   IPADDR=`echo $FORM | cut -d \| -f 1 | tr -d " "`  
-  
-  #check
-  if [[ -z $IPADDR ]]
+  if [[ -z "$IPADDR" ]]
   then
-    ALERT[0]="IP Address will be obtained via DHCP"
+    ALERT[$i]="IP Address will be obtained via DHCP"
+    let i++
     IPADDR="dhcp"
   elif ! valid_ip $IPADDR
   then
-    ALERT[0]="IP Address is not valid, setting default ($IPADDR_OLD)"
+    ALERT[$i]="IP Address is not valid, setting previous ($IPADDR_OLD)"
+    let i++
     IPADDR=$IPADDR_OLD
   fi
-  SERVERIP_OLD=$SERVERIP
   
+  #SERVERIP
+  SERVERIP_OLD=$SERVERIP
   SERVERIP=`echo $FORM | cut -d \| -f 2 | tr -d " "`
-  if [[ -z  $SERVERIP ]]
+  if [[ -z "$SERVERIP" ]]
   then
-    ALERT[1]="SERVERIP cannot be empty, setting default ($SERVERIP_OLD)"
+    ALERT[$i]="SERVERIP cannot be empty, setting previous ($SERVERIP_OLD)"
+    let i++
     SERVERIP=$SERVERIP_OLD
   elif ! valid_ip $SERVERIP
   then
-    ALERT[1]="SERVERIP is not valid, setting default ($SERVERIP_OLD)" 
+    ALERT[$i]="SERVERIP is not valid, setting previous ($SERVERIP_OLD)" 
+    let i++
     SERVERIP=$SERVERIP_OLD
   fi
   
+  #NFSROOT
   NFSROOT_OLD=$NFSROOT
   NFSROOT=`echo $FORM | cut -d \| -f 3`
-  [[ -z $NFSROOT ]] && \
-    ALERT[2]="NFSROOT cannot be empty, setting default ($NFSROOT_OLD)" && \
+  if [[ -z "$NFSROOT" ]]
+  then
+    ALERT[$i]="NFSROOT cannot be empty, setting previous ($NFSROOT_OLD)" && \
+    let i++
     NFSROOT=$NFSROOT_OLD
+  elif [[ "$NFSROOT" =~ [^/a-zA-Z0-9] ]]
+  then
+    ALERT[$i]="The specified directory is not valid. \
+    \nOnly alphanumeric characters are allowed in directories names. \
+    \nSetting previous ($NFSROOT_OLD)"
+    let i++
+    NFSROOT=$NFSROOT_OLD
+  fi
   
   unset valid_ip
-
-  #Print alerts
-  [[ -n ${ALERT[@]} ]] && question \
+  i=0
+  #Print alerts if any
+  if [[ -n ${ALERT[@]} ]]  
+  then 
+    question \
     "$(for i in `seq 0 ${#ALERT[@]}`; do echo ${ALERT[$i]} ; done )
-    
-Are you sure?"
+    \nAre you sure?"
+ 
   (( $? )) && exit 0
-
+  fi
+  
   local DESC=('DHCP' "TFTP" "NTP")
   local SRC=('dhcp' 'tftp' 'ntp')
   
