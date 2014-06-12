@@ -69,9 +69,9 @@ daemonctl(){
 
   #filter
   case $OPT in
-    on)	SELECT=on  ;; 
+    on)		SELECT=on  ;; 
     off) 	SELECT=off ;; 
-    *)    SELECT="" ;;
+    *)    	SELECT="" ;;
   esac
 
   if [[ -z $DAEMON ]] 
@@ -80,13 +80,15 @@ daemonctl(){
     $CHKCONF 2>/dev/null  
   else
     #DO SOMETHING
-    echo $CHKCONF $DAEMON $SELECT 1>&2
+    #echo $CHKCONF $DAEMON $SELECT 1>&2 #DEBUG
     $CHKCONF $DAEMON $SELECT 2>/dev/null
     E_CODE=$?
     (( $E_CODE )) && error "Cannot install/remove service $DAEMON"
 
   fi 
-
+    
+  [[ -z $OPT ]] && QUIET=1
+  
   ok "All tasks completed successfully"
 
 }

@@ -82,21 +82,26 @@ zdaemonctl(){
   local I=1
   for DAEMON in ${DAEMON_LIST[@]}
   do
-    echo $DAEMON #DEBUG
+    echo DAE   $DAEMON #DEBUG
     LINE=`daemonctl $DAEMON`
-    echo $LINE #DEBUG
-    if echo $LINE | grep -q on$ 
+    echo LINE  $LINE #DEBUG    
+    echo LINE# ${LINE#* } #DEBUG
+
+    if [[ "${LINE#* }" =~ "on" ]] 
     then 
       DAEMONS="$DAEMONS TRUE $DAEMON"
       #APPEND TO DAEMON_COMPARE ARRAY
       DAEMON_COMPARE[$I]=$DAEMON
       let I++
-    else
+      echo on_!
+    elif [[ "${LINE#* }" =~ "off" ]] 
+    then
+      echo off_!
       DAEMONS="$DAEMONS FALSE $DAEMON"
     fi
   done
   
-  echo $DAEMONS #DEBUG
+  echo DAEMONS $DAEMONS #DEBUG
   
   DAEMON_CHOOSE_=`$D --title="$TITLE" \
 		    --width=400 \
@@ -192,6 +197,8 @@ zch_vncpasswd(){
   
   local PASSWD
   local PASSWR
+  
+  [[ ! -f $VNCPASSWD ]] && error "$VNCPASSWD not found! Is the VNC server installed?"
   
   PASSWD=`$D --title="$TITLE" --entry --text="Enter new password for remote desktop access" --hide-text`
   (( $? )) && exit 1
@@ -1218,7 +1225,7 @@ zsys_mgr(){
       
       7) (expand_fs) ;;   
       
-      8) (zdaemonctl) ;;
+      #8) (zdaemonctl) ;;
     esac
 
   done
