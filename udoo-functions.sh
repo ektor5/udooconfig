@@ -287,15 +287,13 @@ EOF
 }
 
 boot_vram() {  
-#boot_vram($FBMEM $GPUMEM)
-  local FBMEM=$1
-  local GPUMEM=$2
-  declare -i FBMEM GPUMEM
+#boot_vram($GPUMEM)
+  local GPUMEM=$1
+  declare -i GPUMEM
   
-  [[ -z $FBMEM ]] && error "FBMEM cannot be empty"
   [[ -z $GPUMEM ]] && error "GPUMEM cannot be empty"
   
-  $SETENV memory "fbmem=${FBMEM}M gpu_reserved=${GPUMEM}M" || error
+  $SETENV memory "gpu_memory=${GPUMEM}M" || error
 
   sync
   
