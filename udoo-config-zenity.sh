@@ -1124,6 +1124,23 @@ You are advised to backup your actual environment before proceeding." \
 
 }
 
+zstartcamera(){
+
+  [[ -d $CAMERA_DIR ]] || error "The Camera service seems to be not installed properly"
+
+  if [[ $(service camera status) =~ "start" ]] 
+    then
+      question "Camera service is currently enabled and running. Do you want to disable it?" 
+    else
+      question "Camera service is currently disabled. Do you want to enable it?" 
+  fi
+
+  (( $? )) && exit
+  
+  startcamera
+      
+}
+
 zboot_mgr(){
   until (( $EXIT ))
   do
@@ -1276,6 +1293,8 @@ do
     6) (zboot_default) ;;
 
     7) (zboot_video) ;;
+    
+    8) (zstartcamera) ;;
 
     9) (zboot_mgr) ;;   
 

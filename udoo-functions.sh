@@ -34,8 +34,13 @@ ZONECONTINENTS=('America' 'Asia' 'Europe' 'Australia' 'Africa' 'Atlantic' 'Pacif
 
 KBD_DEFAULT="/etc/default/keyboard"
 KBD_RULES="/usr/share/X11/xkb/rules/xorg.lst"
+
 declare -a DAEMON_LIST
 DAEMON_LIST=( ssh openvnc ntp )
+
+CAMERA_NOT_RUN="/etc/camera/camera_not_to_be_run"
+CAMERA_DIR="/etc/camera/"
+CAMERA="camera"
 
 error() {
   #error($E_TEXT,$E_CODE)
@@ -469,6 +474,24 @@ boot_reset(){
   sync
 
   ok "The u-boot environment has been resetted successfully"
+
+}
+
+startcamera(){
+#startcamera($OPT)
+
+if [[ -f $CAMERA_NOT_RUN ]] 
+  then 
+    rm $CAMERA_NOT_RUN
+    service $CAMERA restart
+  else 
+    touch $CAMERA_NOT_RUN
+    service $CAMERA stop
+fi
+
+(( $? )) && error
+
+ok
 
 }
 
