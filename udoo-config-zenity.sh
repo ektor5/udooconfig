@@ -1138,8 +1138,6 @@ zboot_mgr(){
 	    --column="Checkbox" \
 	    --column="Number" \
 	    --column="Option" \
-	    0		1		"Set default boot device" \
-	    0		6		"Set default video output" \
 	    0		7		"Change RAM memory layout" \
 	    0		8		"Reset U-Boot Environment" \
 	    0		9		"Show U-Boot Environment" \
@@ -1147,10 +1145,6 @@ zboot_mgr(){
     EXIT=$?
     
     case $CHOOSE in
-
-      1) (zboot_default) ;;
-
-      6) (zboot_video) ;;
       
       7) (zboot_vram) ;;
       
@@ -1164,6 +1158,7 @@ zboot_mgr(){
 }
 
 zsys_mgr(){
+#DEPRECATED
   until (( $EXIT ))
   do
     CHOOSE=`$D  --title="System Manager" \
@@ -1184,7 +1179,6 @@ zsys_mgr(){
 	    0		5		"Change VNC Password" \
 	    0		6		"Update date from network and sync with RTC" \
 	    0		7		"Expand root partition to disk max capacity" \
-	    0		8		"Service Management" \
 	  `  
     EXIT=$?
     
@@ -1204,7 +1198,6 @@ zsys_mgr(){
       
       7) (expand_fs) ;;   
       
-      #8) (zdaemonctl) ;;
     esac
 
   done
@@ -1255,19 +1248,38 @@ do
 	  --column="Checkbox" \
 	  --column="Number" \
 	  --column="Option" \
-	  0		1		"System Manager" \
-	  0		2		"U-Boot Manager" \
-	  0		9		"Credits" \
+	  0		1		"Change User Password" \
+	  0		2		"Change Keyboard Layout" \
+	  0		3		"Change Timezone Setting" \
+	  0		4		"Change Remote Desktop Password" \
+	  0		5		"Expand Filesystem to fill disk max capacity" \
+	  0		6		"Set Default Boot Device" \
+	  0		7		"Set Default Video Output (LVDS \ HDMI)" \
+	  0		8		"Enable UDOO Camera Module" \
+	  0		9		"U-Boot" \
+	  0		10		"Credits" \
 	      `
   EXIT=$?
   
   case $CHOOSE in
 
-    1) (zsys_mgr) ;;
+    1) (zch_passwd $UDOO_USER) ;;
 
-    2) (zboot_mgr) ;;   
+    2) (zch_keyboard) ;;
 
-    9) (zcredits) ;;
+    3) (zch_timezone) ;;
+      
+    4) (zch_vncpasswd) ;;
+     
+    5) (expand_fs) ;;   
+  
+    6) (zboot_default) ;;
+
+    7) (zboot_video) ;;
+
+    9) (zboot_mgr) ;;   
+
+    10) (zcredits) ;;
 
   esac
 
