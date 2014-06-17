@@ -500,9 +500,8 @@ EOF
 
 zboot_vram(){
   local UDOO_ENV
-  local FBMEM
   local GPUMEM
-  declare -i FBMEM GPUMEM
+  declare -i GPUMEM
    
   UDOO_ENV=`$PRINTENV memory 2>&1`
 
@@ -511,15 +510,10 @@ zboot_vram(){
 	  127)	error "$PRINTENV not found" ;;
   esac
 
-  FBMEM=`echo $UDOO_ENV  | sed -n -e 's/.*fbmem\=\([0-9]*\)M.*/\1/p'`
-  GPUMEM=`echo $UDOO_ENV | sed -n -e 's/.*gpu_reserved\=\([0-9]*\)M.*/\1/p'`
+  GPUMEM=`echo $UDOO_ENV | sed -n -e 's/.*gpu_memory\=\([0-9]*\)M.*/\1/p'`
 
-  (( $FBMEM )) || FBMEM=24
   (( $GPUMEM )) || GPUMEM=128
 
-  local SRC=( 6 10 24 )
-  local DESC=( "6M" "10M" "24M (default)" )
-  
   current_video() {
   #current_video($OLD)
     local CURRENT=$1
@@ -538,21 +532,6 @@ zboot_vram(){
     let i++
     done
   }
-  
-  FBMEM=`current_video $FBMEM | xargs $D \
-		  --title="$TITLE" \
-		  --width=400 \
-		  --height=300 \
-		  --list \
-		  --radiolist \
-		  --hide-header \
-		  --hide-column=2 \
-		  --column="Checkbox" \
-		  --column="Number" \
-		  --column="Option" \
-		  --text="Choose a memory value for framebuffer memory:" \
-		  `
-  (( $? )) && exit 1
   
   local DESC=("1M" "8M" "16M" "32M" "64M" "128M (default)" "256M")
   local SRC=(1 8 16 32 64 128 256)
@@ -573,7 +552,7 @@ zboot_vram(){
   
   unset current_video
   
-  boot_vram $FBMEM $GPUMEM
+  boot_vram $GPUMEM
 }
 
 zboot_printenv(){
