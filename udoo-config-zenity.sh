@@ -556,7 +556,7 @@ zboot_vram(){
 }
 
 zboot_printenv(){
-  boot_printenv | $D --width=400 --height=300 --title="$TITLE" --text-info --font="monospace,9"
+  boot_printenv | $D --width=600 --height=500 --title="$TITLE" --text-info --font="monospace,9"
 }
 
 zboot_mmcvars(){
@@ -1222,7 +1222,7 @@ zsys_mgr(){
 
 zcredits(){
   $D 	--title="Credits" --info --text="
-Credits by:
+UDOO Configurator v2.0
 
 Ettore Chimenti AKA ektor-5
 
@@ -1256,7 +1256,7 @@ until (( $EXIT ))
 do
   CHOOSE=`$D --title="$TITLE" \
 	  --width=400 \
-	  --height=300 \
+	  --height=350 \
 	  --list \
 	  --text="Choose an option:" \
 	  --radiolist \
