@@ -284,7 +284,7 @@ zch_keyboard(){
 	  #process line
 	  line=`echo $line | sed -e 's/ \s*/ \"/' -e 's/$/\" /'`
 	  #if line is current layout say TRUE
-	  if [[ $line =~ ^$current ]]
+	  if [[ ${line% *} == $current ]]
 	  #mark current for sorting
 	    then echo 1_TRUE $line
 	    else echo FALSE $line
