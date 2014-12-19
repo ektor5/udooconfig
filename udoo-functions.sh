@@ -27,6 +27,7 @@ SRCFILE="$DIR/udoo-defaultenv.src"
 INSSERV="/usr/lib/insserv/insserv"
 VNCPASSWD="/home/$UDOO_USER/.vnc/passwd"
 
+ZONETIME="/etc/timezone"
 ZONEFILE="/etc/localtime"
 ZONEINFO="/usr/share/zoneinfo/"
 declare -a ZONECONTINENTS
@@ -209,9 +210,10 @@ ch_timezone(){
   [[ -f $ZONEINFO$ZONE ]] || error "$ZONEINFO$ZONE does not exist"
 
   [[ -f $ZONEFILE ]] && rm $ZONEFILE
+  [[ -f $ZONETIME ]] && rm $ZONETIME
 
   # /etc/localtime -> /usr/share/zoneinfo/ + ZONE
-  ln -sf $ZONEINFO$ZONE $ZONEFILE
+  ln -s $ZONEINFO$ZONE $ZONEFILE && echo $ZONE > $ZONETIME
 
   (( $? )) && error "Cannot set current timezone"
 
@@ -504,7 +506,7 @@ Ettore Chimenti AKA ektor-5
 
 ek5.chimenti@gmail.com
 
-for UDOO Team
+for UDOO Team @ 2014/12 
 CREDITS
 }
 

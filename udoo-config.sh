@@ -22,6 +22,7 @@ PART="/dev/mmcblk0p1"
 SRCFILE="udoo-defaultenv.src"
 INSSERV="/usr/lib/insserv/insserv"
 
+ZONETIME="/etc/timezone"
 ZONEFILE="/etc/localtime"
 ZONEINFO="/usr/share/zoneinfo/"
 
