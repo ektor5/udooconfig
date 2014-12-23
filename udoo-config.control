@@ -5,10 +5,10 @@ Homepage: http://www.udoo.org
 Standards-Version: 3.9.2
 
 Package: udoo-config
-Version: 2.0
+Version: 2.1
 Maintainer: Ettore Chimenti <ek5.chimenti@gmail.com>
 # Pre-Depends: <comma-separated list of packages>
-Depends: zenity, gksu, parted, u-boot-env, chkconfig
+Depends: zenity, gksu, parted, u-boot-env
 # Recommends: <comma-separated list of packages>
 # Suggests: <comma-separated list of packages>
 # Provides: <comma-separated list of packages>
