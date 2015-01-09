@@ -1221,14 +1221,7 @@ zsys_mgr(){
 }
 
 zcredits(){
-  $D 	--title="Credits" --info --text="
-UDOO Configurator v2.0
-
-Ettore Chimenti AKA ektor-5
-
-ek5.chimenti@gmail.com
-
-for UDOO Team"
+ $D 	--title="Credits" --info --text="$(credits)"
 }
 
 if [ $(id -u) -ne 0 ] 

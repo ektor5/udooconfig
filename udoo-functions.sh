@@ -500,7 +500,7 @@ ok
 credits() {
 
   cat <<CREDITS
-Credits by:
+UDOO Configurator Tool v2.1
 
 Ettore Chimenti AKA ektor-5
 
