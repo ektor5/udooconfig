@@ -6,7 +6,7 @@
 #
 ####################
 
-## Ettore Chimenti @ 2014/04
+## Ettore Chimenti @ 2015/05
 
 if [[ $0 =~ "functions" ]] 
 then
@@ -115,7 +115,7 @@ ch_vncpasswd(){
 }
 
 ch_passwd() {
-  ## ch_passwd($user, $passwd)
+#ch_passwd($user, $passwd)
   
   local USER=$1  
   local PASSWD=$2
@@ -130,7 +130,7 @@ ch_passwd() {
 }
 
 ch_host() {
-  #ch_host($UDOO_NEW)
+#ch_host($UDOO_NEW)
   local UDOO_OLD=`cat /etc/hostname`
   local UDOO_NEW=$1
   UDOO_NEW=`echo $UDOO_NEW | tr -d " \t\n\r" `
@@ -155,6 +155,7 @@ Please reboot!"
 }
 
 ntpdate_rtc() {
+#ntpdate_rtc()
   local NTP
   NTP=`$NTPDATE 2>&1`
   case $? in
@@ -171,7 +172,7 @@ ntpdate_rtc() {
 }
 
 ch_keyboard(){
-#ch_locale($LOCALE)
+#ch_keyboard($LOCALE)
   local LOCALE=$1
 
   [[ -z $LOCALE ]] && error "LOCALE cannot be empty"
@@ -221,6 +222,7 @@ ch_timezone(){
 }
 
 expand_fs() {
+#expand_fs()
   ( [[ -b $MMC ]] && [[ -b $PART ]] ) || error "I can't open $MMC / $PART . Check and edit /etc/udoo-config.conf"
 
   local PARTSIZE=`parted $MMC -ms p | grep \^1 | cut -f 3 -d: `
@@ -295,6 +297,7 @@ EOF
 
 boot_vram() {  
 #boot_vram($GPUMEM)
+
   local GPUMEM=$1
   declare -i GPUMEM
   
@@ -309,6 +312,7 @@ boot_vram() {
 }
 
 boot_printenv() {
+#boot_printenv()
   local UDOO_ENV
   UDOO_ENV=`$PRINTENV 2>&1`
 
@@ -346,7 +350,7 @@ boot_mmcvars() {
 }
 
 boot_satavars() {
-#boot_mmcvars($SATAPART)
+#boot_satavars($SATAPART)
 
   local SATAPART=$1
   local SATAROOT
@@ -374,7 +378,7 @@ boot_satavars() {
 }
 
 boot_netvars() {
-  #boot_netvars($IPADDR, $SERVERIP, $NFSROOT, $GET_CMD)
+#boot_netvars($IPADDR, $SERVERIP, $NFSROOT, $GET_CMD)
 
   local IPADDR=$1
   local SERVERIP=$2
@@ -407,7 +411,7 @@ boot_netvars() {
 }
 
 boot_default() {
-  #boot_default($BOOTSRC,$QUIET)
+#boot_default($BOOTSRC,$QUIET)
   local BOOTSRC=$1	
   local BOOT
 
@@ -498,7 +502,7 @@ ok
 }
 
 credits() {
-
+#credits() 
   cat <<CREDITS
 UDOO Configurator Tool v2.1
 
@@ -510,9 +514,65 @@ for UDOO Team @ 2014/12
 CREDITS
 }
 
-usage(){
-  cat <<USAGE
-TODO
+help() {
+#help($OPTION)
 
+case $1 in 
+    ch_vncpasswd)cat <<HELP
+Change vnc passwd
+HELP
+;;  
+    ch_passwd);;        
+    ch_host);;
+    ntpdate_rtc);;
+    ch_keyboard);;      
+    ch_timezone);;      
+    expand_fs);;
+    boot_vram);;        
+    boot_printenv);;
+    boot_mmcvars);;     
+    boot_mmcvars);;     
+    boot_netvars);;     
+    boot_default);;     
+    boot_script);;      
+    boot_video);;       
+    boot_reset);;
+    startcamera);;      
+    credits);; 
+    help);;             
+    *);;
+esac
+}
+
+
+usage(){
+#usage()
+  cat <<USAGE
+$0: udoo-config [option] [ARGS...]
+
+UDOO Configuration Tool 
+
+Options:           ARGS:
+
+ch_vncpasswd       PASSWD           Change VNC passwd
+ch_passwd          USER, PASSWD     Change user passwd
+ch_host            UDOO_NEW         Change hostname
+ntpdate_rtc                         Update RTC upon NTP
+ch_keyboard        LOCALE           Change keyboard mapping
+ch_timezone        ZONE             Change Localzone
+expand_fs                           Expand root partition
+boot_vram          GPUMEM           Change GPU memory layout
+boot_printenv                       Print uboot environment
+boot_mmcvars       MMCPART          Change bootargs for mmc boot  
+boot_satavars      SATAPART         Change bootargs for sata boot
+boot_netvars       IPADDR SERVERIP  Change bootargs for network boot
+                   NFSROOT GET_CMD  
+boot_default       BOOTSRC QUIET    Change boot source
+boot_script        SCRIPT           Load script
+boot_video         VIDEO_DEV        Change video output [LDB|HDMI]
+                   VIDEO_RES
+boot_reset                          Reset u-boot environment
+startcamera        OPT              Enable camera service
+credits                             Shows the credits
 USAGE
 }
